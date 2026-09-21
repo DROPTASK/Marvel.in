@@ -1,0 +1,123 @@
+-- =========================================================================
+-- Marvel India — seed data. Run after 01_schema.sql.
+-- runtime_minutes and priority are editable — update them any time in
+-- Supabase Studio's Table Editor, or via SQL. Runtimes are approximate for
+-- unreleased titles and rounded for released ones; treat them as planning
+-- estimates, not exact theatrical runtimes.
+-- priority: 'must-watch' | 'recommended' | 'optional'
+-- =========================================================================
+
+insert into public.movies (id, title, year, phase, saga, status, release_date, runtime_minutes, priority, synopsis, tmdb_query, spotlight, sort_order) values
+('iron-man-2008', 'Iron Man', 2008, 'phase1', 'Infinity Saga', 'released', '2008-05-02', 126, 'must-watch', null, 'Iron Man 2008', false, 10),
+('incredible-hulk-2008', 'The Incredible Hulk', 2008, 'phase1', 'Infinity Saga', 'released', '2008-06-13', 112, 'optional', null, 'The Incredible Hulk 2008', false, 20),
+('iron-man-2-2010', 'Iron Man 2', 2010, 'phase1', 'Infinity Saga', 'released', '2010-05-07', 124, 'recommended', null, 'Iron Man 2', false, 30),
+('thor-2011', 'Thor', 2011, 'phase1', 'Infinity Saga', 'released', '2011-05-06', 115, 'recommended', null, 'Thor 2011', false, 40),
+('captain-america-first-avenger-2011', 'Captain America: The First Avenger', 2011, 'phase1', 'Infinity Saga', 'released', '2011-07-22', 124, 'must-watch', null, 'Captain America The First Avenger', false, 50),
+('avengers-2012', 'The Avengers', 2012, 'phase1', 'Infinity Saga', 'released', '2012-05-04', 143, 'must-watch', null, 'The Avengers 2012', false, 60),
+('iron-man-3-2013', 'Iron Man 3', 2013, 'phase2', 'Infinity Saga', 'released', '2013-05-03', 130, 'recommended', null, 'Iron Man 3', false, 70),
+('thor-dark-world-2013', 'Thor: The Dark World', 2013, 'phase2', 'Infinity Saga', 'released', '2013-11-08', 112, 'optional', null, 'Thor The Dark World', false, 80),
+('winter-soldier-2014', 'Captain America: The Winter Soldier', 2014, 'phase2', 'Infinity Saga', 'released', '2014-04-04', 136, 'must-watch', null, 'Captain America The Winter Soldier', false, 90),
+('guardians-2014', 'Guardians of the Galaxy', 2014, 'phase2', 'Infinity Saga', 'released', '2014-08-01', 121, 'must-watch', null, 'Guardians of the Galaxy 2014', false, 100),
+('age-of-ultron-2015', 'Avengers: Age of Ultron', 2015, 'phase2', 'Infinity Saga', 'released', '2015-05-01', 141, 'must-watch', null, 'Avengers Age of Ultron', false, 110),
+('ant-man-2015', 'Ant-Man', 2015, 'phase2', 'Infinity Saga', 'released', '2015-07-17', 117, 'recommended', null, 'Ant-Man 2015', false, 120),
+('civil-war-2016', 'Captain America: Civil War', 2016, 'phase3', 'Infinity Saga', 'released', '2016-05-06', 147, 'must-watch', null, 'Captain America Civil War', false, 130),
+('doctor-strange-2016', 'Doctor Strange', 2016, 'phase3', 'Infinity Saga', 'released', '2016-11-04', 115, 'must-watch', null, 'Doctor Strange 2016', false, 140),
+('guardians-vol2-2017', 'Guardians of the Galaxy Vol. 2', 2017, 'phase3', 'Infinity Saga', 'released', '2017-05-05', 136, 'must-watch', null, 'Guardians of the Galaxy Vol 2', false, 150),
+('homecoming-2017', 'Spider-Man: Homecoming', 2017, 'phase3', 'Infinity Saga', 'released', '2017-07-07', 133, 'must-watch', null, 'Spider-Man Homecoming', false, 160),
+('ragnarok-2017', 'Thor: Ragnarok', 2017, 'phase3', 'Infinity Saga', 'released', '2017-11-03', 130, 'must-watch', null, 'Thor Ragnarok', false, 170),
+('black-panther-2018', 'Black Panther', 2018, 'phase3', 'Infinity Saga', 'released', '2018-02-16', 134, 'must-watch', null, 'Black Panther 2018', false, 180),
+('infinity-war-2018', 'Avengers: Infinity War', 2018, 'phase3', 'Infinity Saga', 'released', '2018-04-27', 149, 'must-watch', null, 'Avengers Infinity War', false, 190),
+('ant-man-wasp-2018', 'Ant-Man and the Wasp', 2018, 'phase3', 'Infinity Saga', 'released', '2018-07-06', 118, 'recommended', null, 'Ant-Man and the Wasp', false, 200),
+('captain-marvel-2019', 'Captain Marvel', 2019, 'phase3', 'Infinity Saga', 'released', '2019-03-08', 123, 'must-watch', null, 'Captain Marvel 2019', false, 210),
+('endgame-2019', 'Avengers: Endgame', 2019, 'phase3', 'Infinity Saga', 'released', '2019-04-26', 181, 'must-watch', null, 'Avengers Endgame', false, 220),
+('far-from-home-2019', 'Spider-Man: Far From Home', 2019, 'phase3', 'Infinity Saga', 'released', '2019-07-02', 129, 'recommended', null, 'Spider-Man Far From Home', false, 230),
+('black-widow-2021', 'Black Widow', 2021, 'phase4', 'Multiverse Saga', 'released', '2021-07-09', 134, 'recommended', null, 'Black Widow 2021', false, 240),
+('shang-chi-2021', 'Shang-Chi and the Legend of the Ten Rings', 2021, 'phase4', 'Multiverse Saga', 'released', '2021-09-03', 132, 'recommended', null, 'Shang-Chi', false, 250),
+('eternals-2021', 'Eternals', 2021, 'phase4', 'Multiverse Saga', 'released', '2021-11-05', 156, 'optional', null, 'Eternals 2021', false, 260),
+('no-way-home-2021', 'Spider-Man: No Way Home', 2021, 'phase4', 'Multiverse Saga', 'released', '2021-12-17', 148, 'must-watch', null, 'Spider-Man No Way Home', false, 270),
+('multiverse-of-madness-2022', 'Doctor Strange in the Multiverse of Madness', 2022, 'phase4', 'Multiverse Saga', 'released', '2022-05-06', 126, 'must-watch', null, 'Doctor Strange Multiverse of Madness', false, 280),
+('love-and-thunder-2022', 'Thor: Love and Thunder', 2022, 'phase4', 'Multiverse Saga', 'released', '2022-07-08', 119, 'recommended', null, 'Thor Love and Thunder', false, 290),
+('wakanda-forever-2022', 'Black Panther: Wakanda Forever', 2022, 'phase4', 'Multiverse Saga', 'released', '2022-11-11', 161, 'must-watch', null, 'Wakanda Forever', false, 300),
+('quantumania-2023', 'Ant-Man and the Wasp: Quantumania', 2023, 'phase5', 'Multiverse Saga', 'released', '2023-02-17', 125, 'recommended', null, 'Quantumania', false, 310),
+('guardians-vol3-2023', 'Guardians of the Galaxy Vol. 3', 2023, 'phase5', 'Multiverse Saga', 'released', '2023-05-05', 150, 'must-watch', null, 'Guardians of the Galaxy Vol 3', false, 320),
+('the-marvels-2023', 'The Marvels', 2023, 'phase5', 'Multiverse Saga', 'released', '2023-11-10', 105, 'optional', null, 'The Marvels 2023', false, 330),
+('deadpool-wolverine-2024', 'Deadpool & Wolverine', 2024, 'phase5', 'Multiverse Saga', 'released', '2024-07-26', 128, 'must-watch', null, 'Deadpool and Wolverine', false, 340),
+('brave-new-world-2025', 'Captain America: Brave New World', 2025, 'phase5', 'Multiverse Saga', 'released', '2025-02-14', 118, 'recommended', null, 'Captain America Brave New World', false, 350),
+('thunderbolts-2025', 'Thunderbolts*', 2025, 'phase5', 'Multiverse Saga', 'released', '2025-05-02', 126, 'recommended', null, 'Thunderbolts', false, 360),
+('fantastic-four-2025', 'The Fantastic Four: First Steps', 2025, 'phase5', 'Multiverse Saga', 'released', '2025-07-25', 115, 'must-watch', null, 'Fantastic Four First Steps', false, 370),
+('avengers-doomsday-2026', 'Avengers: Doomsday', 2026, 'phase6', 'Multiverse Saga', 'upcoming', '2026-12-18', 150, 'must-watch', 'The Multiverse Saga''s centerpiece — Doctor Doom rises as the Avengers, the Fantastic Four, X-Men and variants from across the multiverse are forced onto one battlefield.', 'Avengers Doomsday', true, 380),
+('avengers-secret-wars-2027', 'Avengers: Secret Wars', 2027, 'phase6', 'Multiverse Saga', 'upcoming', '2027-12-17', 150, 'must-watch', 'The saga-closing event pulling together threads from Loki, What If...?, and the multiverse arc built since Endgame.', 'Avengers Secret Wars', false, 390);
+
+insert into public.timeline_events (movie_title, year_label, blurb, spotlight, sort_order) values
+('Captain America: The First Avenger', '1943', 'Steve Rogers becomes the first Super-Soldier and crashes Red Skull''s Hydra flagship into the Arctic, ending WWII''s shadow war and putting himself on ice for 70 years.', false, 10),
+('Thor', '2011 (Asgard)', 'Thor is exiled to Earth for his recklessness, learns humility from Jane Foster and SHIELD, and stops Loki''s attempt to destroy Jotunheim to win their father''s throne.', false, 20),
+('Captain Marvel', '2011', 'Carol Danvers uncovers her Kree conditioning, reclaims her human memories, and helps the Skrulls find a new home — years before anyone else in this list wears a suit.', false, 30),
+('Iron Man', '2008', 'Weapons manufacturer Tony Stark builds a suit of armor to escape captivity, then chooses to become Iron Man instead of selling more weapons.', false, 40),
+('Iron Man 2', '2010', 'Stark battles palladium poisoning and Ivan Vanko while SHIELD quietly assembles the Avengers Initiative around him.', false, 50),
+('The Incredible Hulk', '2008 (present)', 'Bruce Banner, hunted for the Hulk within him, faces the Abomination in Harlem — and General Ross''s obsession with weaponizing the Hulk formula.', false, 60),
+('The Avengers', '2012', 'Loki invades New York with the Chitauri; Earth''s Mightiest Heroes assemble for the first time to close the portal.', false, 70),
+('Iron Man 3', '2013', 'Stark confronts PTSD after New York while unraveling the Mandarin conspiracy and the Extremis program.', false, 80),
+('Thor: The Dark World', '2013 (Asgard)', 'The Aether resurfaces, the Dark Elves attack the Nine Realms, and Thor loses his brother Loki (or does he?) stopping Malekith.', false, 90),
+('Captain America: The Winter Soldier', '2014', 'Cap discovers Hydra has grown inside SHIELD itself, and learns the Winter Soldier is his old friend Bucky Barnes.', false, 100),
+('Guardians of the Galaxy', '2014 (Cosmos)', 'Peter Quill and a ragtag crew stop Ronan the Accuser from using an Infinity Stone to annihilate Xandar.', false, 110),
+('Guardians of the Galaxy Vol. 2', '2014', 'Quill meets his father Ego — a Celestial with plans to consume the galaxy — and the Guardians choose found family over blood.', false, 120),
+('Avengers: Age of Ultron', '2015', 'Stark''s peacekeeping AI turns genocidal; the Avengers create Vision and lose Sokovia in the fight to stop him.', false, 130),
+('Ant-Man', '2015', 'Scott Lang becomes the new Ant-Man to stop Hank Pym''s former protégé from weaponizing shrinking tech.', false, 140),
+('Captain America: Civil War', '2016', 'The Sokovia Accords split the Avengers over accountability, and Zemo exposes that Bucky killed Tony''s parents.', false, 150),
+('Black Widow', '2016', 'Natasha Romanoff confronts her Red Room past and frees the other Widows while a fugitive from the Accords.', false, 160),
+('Doctor Strange', '2016 (Sanctum)', 'Surgeon Stephen Strange loses his hands, gains the mystic arts, and bargains with Dormammu to save Earth from Kaecilius.', false, 170),
+('Spider-Man: Homecoming', '2017', 'Peter Parker balances high school with stopping Adrian Toomes'' black-market alien-tech weapons ring.', false, 180),
+('Thor: Ragnarok', '2017', 'Thor loses his hammer and his home, teams with Hulk and Valkyrie, and lets Asgard burn to stop Hela.', false, 190),
+('Black Panther', '2017', 'T''Challa becomes king of Wakanda and must decide whether to open its doors to the world after Killmonger''s challenge.', false, 200),
+('Avengers: Infinity War', '2018', 'Thanos gathers all six Infinity Stones and snaps half of all life in the universe out of existence.', false, 210),
+('Ant-Man and the Wasp', '2018', 'Scott, Hope and Hank race to rescue Janet van Dyne from the Quantum Realm — just as the Blip hits.', false, 220),
+('Avengers: Endgame', '2023', 'The surviving Avengers use time travel to undo the Snap, and Tony Stark sacrifices himself to defeat Thanos for good.', false, 230),
+('Spider-Man: Far From Home', '2024', 'Peter grieves Tony Stark while Mysterio frames him for chaos across Europe, ending with his identity exposed.', false, 240),
+('Shang-Chi and the Legend of the Ten Rings', '2025', 'Shang-Chi confronts his father Wenwu and the Ten Rings'' true, ancient purpose.', false, 250),
+('Eternals', 'Timeless', 'Ten immortal Eternals reveal their true purpose on Earth and split over Arishem''s plan for humanity.', false, 260),
+('Doctor Strange in the Multiverse of Madness', '2024–25', 'Strange and America Chavez traverse the multiverse to escape a corrupted Scarlet Witch hunting Chavez''s power.', false, 270),
+('Spider-Man: No Way Home', '2025', 'A broken spell tears open the multiverse, bringing villains — and Spider-Men — from other universes to help Peter.', false, 280),
+('Thor: Love and Thunder', '2025', 'Thor teams with Jane Foster (now Mighty Thor) to stop Gorr the God Butcher from wiping out all gods.', false, 290),
+('Black Panther: Wakanda Forever', '2025', 'Wakanda mourns T''Challa and faces Namor''s underwater kingdom of Talokan; Shuri becomes the new Black Panther.', false, 300),
+('Ant-Man and the Wasp: Quantumania', '2026', 'The Langs are pulled into the Quantum Realm and face Kang the Conqueror for the first time.', false, 310),
+('Guardians of the Galaxy Vol. 3', '2026', 'The Guardians fight to save Rocket from the High Evolutionary, and go their separate ways.', false, 320),
+('The Marvels', '2026', 'Carol Danvers, Kamala Khan and Monica Rambeau have their powers entangled and must work as one.', false, 330),
+('Deadpool & Wolverine', '2027 (parallel)', 'Wade Wilson recruits a Wolverine variant to save his universe from the TVA''s Time Ripper — and cameo-packs the multiverse''s void.', false, 340),
+('Captain America: Brave New World', '2028', 'Sam Wilson, the new Captain America, uncovers a conspiracy tied to celestial Adamantium and an old enemy: Thaddeus Ross.', false, 350),
+('Thunderbolts*', '2028', 'A team of morally grey operatives — the New Avengers in waiting — confront the Void, a manifestation of Bob''s trauma.', false, 360),
+('The Fantastic Four: First Steps', '2028', 'Earth''s First Family faces Galactus and the Silver Surfer in a retro-futurist timeline, setting up their entry into the main MCU.', false, 370),
+('Avengers: Doomsday', '2029 — the present crisis', 'Variants collide as Victor von Doom steps out of the multiverse''s shadows. The Fantastic Four, the X-Men, and every surviving Avenger converge for the fight that reshapes the Multiverse Saga.', true, 380),
+('Avengers: Secret Wars', '2029 — the finale', 'Incursions between universes threaten total collapse; heroes from every timeline the MCU has touched face the only fight big enough to close the saga.', false, 390);
+
+insert into public.characters (name, actor, aliases, powers, affiliation, first_appearance, sort_order) values
+('Tony Stark / Iron Man', 'Robert Downey Jr.', array['Iron Man','Anthony Stark'], 'Genius-level intellect, powered exo-suits, repulsor & unibeam weaponry, arc-reactor energy control.', 'Avengers', 'Iron Man (2008)', 10),
+('Steve Rogers / Captain America', 'Chris Evans', array['Captain America','The First Avenger','Nomad'], 'Super-Soldier serum strength, speed & durability; vibranium shield mastery; peak tactical leadership.', 'Avengers', 'Captain America: The First Avenger (2011)', 20),
+('Natasha Romanoff / Black Widow', 'Scarlett Johansson', array['Black Widow'], 'Red Room-trained master spy, expert martial artist, marksman, and interrogator.', 'Avengers / S.H.I.E.L.D.', 'Iron Man 2 (2010)', 30),
+('Thor Odinson', 'Chris Hemsworth', array['God of Thunder'], 'Asgardian physiology, weather/lightning manipulation, Mjolnir & Stormbreaker mastery.', 'Avengers / Asgard', 'Thor (2011)', 40),
+('Bruce Banner / Hulk', 'Mark Ruffalo', array['Hulk','Smart Hulk'], 'Gamma-fueled transformation into a near-invulnerable rage-powered giant; genius physicist.', 'Avengers', 'The Avengers (2012)', 50),
+('Clint Barton / Hawkeye', 'Jeremy Renner', array['Hawkeye','Ronin'], 'World-class marksman with trick arrows; peak-human combatant.', 'Avengers', 'Thor (2011, cameo)', 60),
+('Peter Parker / Spider-Man', 'Tom Holland', array['Spider-Man'], 'Spider-bite-derived strength, agility, wall-crawling, and precognitive ''spider-sense''.', 'Avengers', 'Captain America: Civil War (2016)', 70),
+('T''Challa / Black Panther', 'Chadwick Boseman', array['Black Panther','King of Wakanda'], 'Vibranium suit, Heart-Shaped Herb-enhanced strength & senses, master strategist.', 'Wakanda / Avengers', 'Captain America: Civil War (2016)', 80),
+('Stephen Strange / Doctor Strange', 'Benedict Cumberbatch', array['Doctor Strange','Sorcerer Supreme'], 'Mastery of the mystic arts, time manipulation via the Eye of Agamotto, astral projection.', 'Masters of the Mystic Arts', 'Doctor Strange (2016)', 90),
+('Carol Danvers / Captain Marvel', 'Brie Larson', array['Captain Marvel','Vers'], 'Photon-energy absorption & projection, flight, superhuman strength — one of the MCU''s most powerful heroes.', 'Avengers / Kree (former)', 'Captain Marvel (2019)', 100),
+('Wanda Maximoff / Scarlet Witch', 'Elizabeth Olsen', array['Scarlet Witch'], 'Chaos magic: reality alteration, telekinesis, telepathy; wields the Darkhold''s forbidden knowledge.', 'Avengers', 'Captain America: The Winter Soldier (2014, credits)', 110),
+('Sam Wilson / Falcon → Captain America', 'Anthony Mackie', array['Falcon','Captain America (present)'], 'EXO-7 Falcon wingsuit, aerial combat mastery; inherits the vibranium shield.', 'Avengers', 'Captain America: The Winter Soldier (2014)', 120),
+('Bucky Barnes / Winter Soldier', 'Sebastian Stan', array['Winter Soldier','White Wolf'], 'Super-soldier serum remnants, vibranium arm, elite Hydra-trained assassin skillset.', 'Avengers', 'Captain America: The First Avenger (2011)', 130),
+('Loki Laufeyson', 'Tom Hiddleston', array['God of Mischief','He Who Remains variant'], 'Illusion casting, shapeshifting, sorcery; Frost Giant physiology beneath an Asgardian guise.', 'Variant / TVA (later)', 'Thor (2011)', 140),
+('Nick Fury', 'Samuel L. Jackson', array['Director Fury'], 'No powers — peerless strategist, intelligence veteran, architect of the Avengers Initiative.', 'S.H.I.E.L.D.', 'Iron Man (2008, post-credits)', 150),
+('Peter Quill / Star-Lord', 'Chris Pratt', array['Star-Lord'], 'Half-Celestial physiology, elemental gun mastery, jet-boot flight.', 'Guardians of the Galaxy', 'Guardians of the Galaxy (2014)', 160),
+('Gamora', 'Zoe Saldaña', array['Deadliest Woman in the Galaxy'], 'Cybernetically enhanced Zehoberei physiology; elite assassin trained by Thanos.', 'Guardians of the Galaxy', 'Guardians of the Galaxy (2014)', 170),
+('Shuri', 'Letitia Wright', array['Princess of Wakanda','Black Panther (later)'], 'Genius-level Wakandan technologist and inventor; later gains Heart-Shaped Herb powers.', 'Wakanda', 'Captain America: Civil War (2016)', 180),
+('Shang-Chi', 'Simu Liu', array['Master of Kung Fu','Shang'], 'Peerless martial artist trained by his father Wenwu; wields the Ten Rings.', 'Ten Rings (former) / Avengers-adjacent', 'Shang-Chi and the Legend of the Ten Rings (2021)', 190),
+('Kamala Khan / Ms. Marvel', 'Iman Vellani', array['Ms. Marvel'], 'Cosmic bangle-derived hard-light constructs and embiggening; Captain Marvel super-fan.', 'The Marvels', 'Ms. Marvel (2022, TV)', 200),
+('Victor von Doom', 'Robert Downey Jr.', array['Doctor Doom'], 'Sorcery and Latverian science fused into one of the multiverse''s most dangerous minds; master of both magic and technology.', 'Latveria', 'Avengers: Doomsday (2026)', 210);
+
+-- A handful of starter affiliate products — replace amazon_url with your own
+-- product links (your Associates tag is appended automatically at render
+-- time, see js/config.js AMAZON_AFFILIATE_TAG).
+insert into public.affiliate_products (title, image_url, amazon_url, category, price_label, blurb, sort_order) values
+('Avengers Infinity Gauntlet Prop Replica', null, 'https://www.amazon.in/s?k=infinity+gauntlet+replica', 'Collectibles', '₹₹₹', 'Life-size articulated gauntlet for display or cosplay.', 10),
+('Marvel Legends 6-inch Action Figure', null, 'https://www.amazon.in/s?k=marvel+legends+action+figure', 'Toys', '₹₹', 'Poseable, comic-accurate figures across the whole roster.', 20),
+('MCU Phase Box Set (Blu-ray)', null, 'https://www.amazon.in/s?k=mcu+phase+box+set+blu+ray', 'Movies', '₹₹₹', 'The full theatrical cut of a phase in one set — handy for roadmap marathons.', 30),
+('Captain America Shield Replica', null, 'https://www.amazon.in/s?k=captain+america+shield+replica', 'Collectibles', '₹₹₹', 'Wall-mountable vibranium-style shield replica.', 40),
+('Marvel Comics Omnibus', null, 'https://www.amazon.in/s?k=marvel+omnibus', 'Books', '₹₹', 'Deep-dive into the source comics behind the movies.', 50);

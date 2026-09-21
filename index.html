@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Marvel India — Search, Timeline, Roadmap &amp; Characters</title>
-<meta name="description" content="A Marvel-focused movie hub: search, watch-provider lookup, in-universe timeline, phase-by-phase roadmap, and a full character database.">
+<title>Marvel India — Search, Timeline, Roadmap, Blog &amp; Shop</title>
+<meta name="description" content="A Marvel-focused hub: search, watch-provider lookup, in-universe timeline, a Doomsday watch-plan roadmap, a character database, a community blog, and Amazon merch picks.">
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -19,6 +19,8 @@
       <a href="#/timeline" class="navlink">Timeline</a>
       <a href="#/roadmap" class="navlink">Roadmap</a>
       <a href="#/characters" class="navlink">Characters</a>
+      <a href="#/blog" class="navlink">Blog</a>
+      <a href="#/shop" class="navlink">Shop</a>
     </nav>
     <div id="auth-slot"></div>
   </div>
@@ -27,16 +29,28 @@
 <main id="app"></main>
 
 <footer class="site-footer">
-  <p>Marvel India is a fan-made demo. Movie data via TMDB, OMDb, TVmaze &amp; Watchmode; character data via the Marvel Comics API. Not affiliated with Marvel Studios or The Walt Disney Company.</p>
+  <p>Marvel India is a fan-made demo. Movie data via TMDB, OMDb, TVmaze &amp; Watchmode; character data via the Marvel Comics API; accounts, database and storage via Supabase. As an Amazon Associate, Marvel India earns from qualifying purchases. Not affiliated with Marvel Studios or The Walt Disney Company.</p>
 </footer>
+
+<!-- Mobile-only bottom tab bar (hidden on desktop via CSS) -->
+<nav class="bottom-nav">
+  <a href="#/home" class="tab-link"><span>🏠</span>Home</a>
+  <a href="#/search" class="tab-link"><span>🔍</span>Search</a>
+  <a href="#/roadmap" class="tab-link"><span>🗺️</span>Roadmap</a>
+  <a href="#/blog" class="tab-link"><span>📰</span>Blog</a>
+  <a href="#/shop" class="tab-link"><span>🛒</span>Shop</a>
+</nav>
 
 <div id="modal-root"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="js/md5.js"></script>
 <script src="js/config.js"></script>
-<script src="js/data.js"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/db.js"></script>
 <script src="js/api.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/notifications.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

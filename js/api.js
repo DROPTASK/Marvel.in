@@ -1,8 +1,9 @@
 /**
  * Thin fetch wrappers around every external API this app touches.
  * Every function fails soft: on any error/missing key it returns null or []
- * so the UI can fall back to bundled sample data (js/data.js) instead of
- * breaking the page.
+ * so the UI degrades to a small "add a key" notice instead of breaking the
+ * page. All primary content now comes from Supabase (js/db.js) — these
+ * wrappers only enrich it with live posters, ratings and streaming links.
  */
 const MI = window.MI_API = (() => {
   const cfg = window.MARVEL_INDIA_CONFIG;
