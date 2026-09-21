@@ -2,10 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Marvel India</title>
-<meta name="description" content="Marvel hub for India — search, timeline, roadmap, characters, community blog & shop. Powered by Supabase.">
-<meta name="theme-color" content="#000000">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marvel India — Search, Timeline, Roadmap, Blog &amp; Shop</title>
+<meta name="description" content="A Marvel-focused hub: search, watch-provider lookup, in-universe timeline, a Doomsday watch-plan roadmap, a character database, a community blog, and Amazon merch picks.">
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -13,7 +12,7 @@
 
 <header class="site-header">
   <div class="site-header-inner">
-    <a href="#/home" class="nav-brand">Marvel<span>India</span></a>
+    <a href="#/home" class="nav-brand">MARVEL<span>INDIA</span></a>
     <nav class="main-nav">
       <a href="#/home" class="navlink">Home</a>
       <a href="#/search" class="navlink">Search</a>
@@ -30,20 +29,22 @@
 <main id="app"></main>
 
 <footer class="site-footer">
-  <p>Marvel India is a fan-made project. Data via TMDB, OMDb, Watchmode &amp; Marvel Comics API (proxied securely). Accounts &amp; database by Supabase. As an Amazon Associate, Marvel India earns from qualifying purchases. Not affiliated with Marvel Studios or The Walt Disney Company.</p>
+  <p>Marvel India is a fan-made demo. Movie data via TMDB, OMDb, TVmaze &amp; Watchmode; character data via the Marvel Comics API; accounts, database and storage via Supabase. As an Amazon Associate, Marvel India earns from qualifying purchases. Not affiliated with Marvel Studios or The Walt Disney Company.</p>
 </footer>
 
+<!-- Mobile-only bottom tab bar (hidden on desktop via CSS) -->
 <nav class="bottom-nav">
-  <a href="#/home" class="tab-link"><span>⌂</span>Home</a>
-  <a href="#/search" class="tab-link"><span>⌕</span>Search</a>
-  <a href="#/roadmap" class="tab-link"><span>◎</span>Roadmap</a>
-  <a href="#/blog" class="tab-link"><span>≡</span>Blog</a>
-  <a href="#/shop" class="tab-link"><span>◈</span>Shop</a>
+  <a href="#/home" class="tab-link"><span>🏠</span>Home</a>
+  <a href="#/search" class="tab-link"><span>🔍</span>Search</a>
+  <a href="#/roadmap" class="tab-link"><span>🗺️</span>Roadmap</a>
+  <a href="#/blog" class="tab-link"><span>📰</span>Blog</a>
+  <a href="#/shop" class="tab-link"><span>🛒</span>Shop</a>
 </nav>
 
 <div id="modal-root"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/md5.js"></script>
 <script src="js/config.js"></script>
 <script src="js/supabaseClient.js"></script>
 <script src="js/db.js"></script>
