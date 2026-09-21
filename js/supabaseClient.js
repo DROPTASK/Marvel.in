@@ -5,8 +5,8 @@
  */
 const MI_SUPABASE = (() => {
   const cfg = window.MARVEL_INDIA_CONFIG;
-  const configured = cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY &&
-    !cfg.SUPABASE_URL.includes("YOUR-PROJECT-REF");
+  const configured = cfg && cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY &&
+    !cfg.SUPABASE_URL.includes("YOUR-PROJECT-REF") && typeof window.supabase !== "undefined";
   if (!configured) {
     console.warn("[MarvelIndia] Supabase is not configured yet — fill in SUPABASE_URL and SUPABASE_ANON_KEY in js/config.js.");
     return { ready: false, client: null };

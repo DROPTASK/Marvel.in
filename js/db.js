@@ -15,46 +15,120 @@ const MI_DB = (() => {
     return null;
   }
 
+  function localRoadmap() {
+    if (!window.MI_ROADMAP) return [];
+    return window.MI_ROADMAP.map((m, idx) => ({
+      id: m.id || m.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      title: m.title,
+      year: m.year,
+      phase: m.phase,
+      saga: m.phase === "phase6" || m.phase === "phase5" || m.phase === "phase4" ? "Multiverse Saga" : "Infinity Saga",
+      status: m.status || "released",
+      release_date: m.releaseDate || `${m.year}-05-01`,
+      runtime_minutes: m.runtimeMinutes || 120,
+      priority: m.priority || "must-watch",
+      synopsis: m.synopsisFallback || null,
+      tmdb_query: m.tmdbQuery,
+      spotlight: !!m.spotlight,
+      sort_order: (idx + 1) * 10
+    }));
+  }
+
+  function localTimeline() {
+    if (!window.MI_TIMELINE) return [];
+    return window.MI_TIMELINE.map((t, idx) => ({
+      id: idx + 1,
+      movie_title: t.title,
+      year_label: t.year,
+      blurb: t.blurb,
+      spotlight: !!t.spotlight,
+      sort_order: (idx + 1) * 10
+    }));
+  }
+
+  function localCharacters() {
+    if (!window.MI_CHARACTERS) return [];
+    return window.MI_CHARACTERS.map((c, idx) => ({
+      id: idx + 1,
+      name: c.name,
+      actor: c.actor,
+      powers: c.powers,
+      first_appearance: c.firstAppearance,
+      affiliation: c.affiliation,
+      sort_order: (idx + 1) * 10
+    }));
+  }
+
   // ------------------------------------------------------------- movies
   async function getRoadmap() {
-    const bail = guard([]); if (bail) return bail;
-    const { data, error } = await sb().from("movies").select("*").order("sort_order");
-    if (error) { console.error(error); return []; }
-    return data;
+    const bail = guard(null);
+    if (bail !== null) return localRoadmap();
+    try {
+      const { data, error } = await sb().from("movies").select("*").order("sort_order");
+      if (error || !data || !data.length) return localRoadmap();
+      return data;
+    } catch {
+      return localRoadmap();
+    }
   }
   async function getMovie(id) {
-    const bail = guard(null); if (bail) return bail;
-    const { data, error } = await sb().from("movies").select("*").eq("id", id).single();
-    if (error) { console.error(error); return null; }
-    return data;
+    const bail = guard(null);
+    if (bail !== null) return localRoadmap().find(m => m.id === id) || null;
+    try {
+      const { data, error } = await sb().from("movies").select("*").eq("id", id).single();
+      if (error || !data) return localRoadmap().find(m => m.id === id) || null;
+      return data;
+    } catch {
+      return localRoadmap().find(m => m.id === id) || null;
+    }
   }
   async function getSpotlightMovie() {
-    const bail = guard(null); if (bail) return bail;
-    const { data, error } = await sb().from("movies").select("*").eq("spotlight", true).limit(1).maybeSingle();
-    if (error) { console.error(error); return null; }
-    return data;
+    const bail = guard(null);
+    if (bail !== null) return localRoadmap().find(m => m.spotlight) || localRoadmap()[localRoadmap().length - 1] || null;
+    try {
+      const { data, error } = await sb().from("movies").select("*").eq("spotlight", true).limit(1).maybeSingle();
+      if (error || !data) return localRoadmap().find(m => m.spotlight) || localRoadmap()[localRoadmap().length - 1] || null;
+      return data;
+    } catch {
+      return localRoadmap().find(m => m.spotlight) || localRoadmap()[localRoadmap().length - 1] || null;
+    }
   }
 
   // ------------------------------------------------------------- timeline
   async function getTimeline() {
-    const bail = guard([]); if (bail) return bail;
-    const { data, error } = await sb().from("timeline_events").select("*").order("sort_order");
-    if (error) { console.error(error); return []; }
-    return data;
+    const bail = guard(null);
+    if (bail !== null) return localTimeline();
+    try {
+      const { data, error } = await sb().from("timeline_events").select("*").order("sort_order");
+      if (error || !data || !data.length) return localTimeline();
+      return data;
+    } catch {
+      return localTimeline();
+    }
   }
 
   // ------------------------------------------------------------- characters
   async function getCharacters() {
-    const bail = guard([]); if (bail) return bail;
-    const { data, error } = await sb().from("characters").select("*").order("sort_order");
-    if (error) { console.error(error); return []; }
-    return data;
+    const bail = guard(null);
+    if (bail !== null) return localCharacters();
+    try {
+      const { data, error } = await sb().from("characters").select("*").order("sort_order");
+      if (error || !data || !data.length) return localCharacters();
+      return data;
+    } catch {
+      return localCharacters();
+    }
   }
   async function getCharacterById(id) {
-    const bail = guard(null); if (bail) return bail;
-    const { data, error } = await sb().from("characters").select("*").eq("id", id).single();
-    if (error) { console.error(error); return null; }
-    return data;
+    const bail = guard(null);
+    if (bail !== null) return localCharacters().find(c => String(c.id) === String(id)) || null;
+    try {
+      const { data, error } = await sb().from("characters").select("*").eq("id", id).single();
+      if (error || !data) return localCharacters().find(c => String(c.id) === String(id)) || null;
+      return data;
+    } catch {
+      return localCharacters().find(c => String(c.id) === String(id)) || null;
+    }
   }
 
   // ------------------------------------------------------------- wishlist

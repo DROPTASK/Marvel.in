@@ -140,7 +140,7 @@ async function renderHome() {
   if (!MI_SUPABASE.ready) { app.innerHTML = supabaseNotConfiguredNotice(); return; }
 
   const [spotlight, roadmap] = await Promise.all([MI_DB.getSpotlightMovie(), MI_DB.getRoadmap()]);
-  const doom = spotlight || roadmap.find(m => m.status === "upcoming") || roadmap[roadmap.length - 1];
+  const doom = spotlight || (roadmap && roadmap.find(m => m.status === "upcoming")) || (roadmap && roadmap[roadmap.length - 1]) || { title: "Avengers: Doomsday", release_date: "2026-12-18", tmdb_query: "Avengers Doomsday" };
   const doomTmdb = await enrichWithTmdb(doom.tmdb_query);
 
   const doomPoster = (() => {
@@ -151,7 +151,7 @@ async function renderHome() {
   const doomOverview = (doomTmdb && doomTmdb.overview) || doom.synopsis || "";
   const doomRelease = doom.release_date;
 
-  const recent = roadmap.slice(-12).reverse();
+  const recent = (roadmap || []).slice(-12).reverse();
   const enriched = await Promise.all(recent.map(async m => {
     const t = await enrichWithTmdb(m.tmdb_query);
     const pp = t ? MI_API.tmdb.posterUrl(t.poster_path) : null;

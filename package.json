@@ -1,0 +1,15 @@
+{
+  "name": "marvel-india",
+  "version": "1.0.0",
+  "description": "A Marvel-focused hub: search, watch-provider lookup, in-universe timeline, a Doomsday watch-plan roadmap, a character database, a community blog, and Amazon merch picks.",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "echo 'Static app ready'",
+    "lint": "node --check server.js api/omdb.js api/tmdb.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
