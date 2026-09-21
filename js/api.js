@@ -52,8 +52,17 @@ const MI = window.MI_API = (() => {
       return data.results.find(r => r.media_type !== "person") || null;
     },
 
-    posterUrl(path) { return path ? cfg.TMDB_IMAGE_BASE + path : null; },
-    backdropUrl(path) { return path ? cfg.TMDB_BACKDROP_BASE + path : null; }
+    posterUrl(path) {
+      if (!path) return null;
+      const base = (cfg.TMDB_IMAGE_BASE || "https://image.tmdb.org/t/p/w500").replace("http://", "https://");
+      const p = path.startsWith("http") ? path.replace("http://", "https://") : base + path;
+      return p;
+    },
+    backdropUrl(path) {
+      if (!path) return null;
+      const base = (cfg.TMDB_BACKDROP_BASE || "https://image.tmdb.org/t/p/original").replace("http://", "https://");
+      return path.startsWith("http") ? path.replace("http://", "https://") : base + path;
+    }
   };
 
   // ---------------- OMDb ------------------------------------------------

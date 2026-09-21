@@ -10,36 +10,43 @@
 </head>
 <body>
 
-<header class="site-header">
-  <div class="site-header-inner">
-    <a href="#/home" class="nav-brand">MARVEL<span>INDIA</span></a>
-    <nav class="main-nav">
-      <a href="#/home" class="navlink">Home</a>
-      <a href="#/search" class="navlink">Search</a>
-      <a href="#/timeline" class="navlink">Timeline</a>
-      <a href="#/roadmap" class="navlink">Roadmap</a>
-      <a href="#/characters" class="navlink">Characters</a>
-      <a href="#/blog" class="navlink">Blog</a>
-      <a href="#/shop" class="navlink">Shop</a>
+<div class="app-shell">
+  <!-- Sidebar (desktop + mobile drawer) -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <a href="#/home" class="nav-brand">MARVEL<span>INDIA</span></a>
+      <button type="button" class="sidebar-close" id="sidebar-close" aria-label="Close menu">×</button>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#/home" class="navlink" data-route="home">Home</a>
+      <a href="#/search" class="navlink" data-route="search">Search</a>
+      <a href="#/timeline" class="navlink" data-route="timeline">Timeline</a>
+      <a href="#/roadmap" class="navlink" data-route="roadmap">Roadmap</a>
+      <a href="#/characters" class="navlink" data-route="characters">Characters</a>
+      <a href="#/blog" class="navlink" data-route="blog">Blog</a>
+      <a href="#/shop" class="navlink" data-route="shop">Shop</a>
+      <a href="#/wishlist" class="navlink" data-route="wishlist">Wishlist</a>
     </nav>
-    <div id="auth-slot"></div>
+    <div class="sidebar-auth" id="auth-slot"></div>
+  </aside>
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <div class="main-wrap">
+    <header class="site-header">
+      <div class="site-header-inner">
+        <button type="button" class="menu-toggle" id="menu-toggle" aria-label="Open menu">☰</button>
+        <a href="#/home" class="nav-brand mobile-brand">MARVEL<span>INDIA</span></a>
+        <div class="header-spacer"></div>
+      </div>
+    </header>
+
+    <main id="app"></main>
+
+    <footer class="site-footer">
+      <p>Marvel India is a fan-made demo. Movie data via TMDB, OMDb &amp; Watchmode; accounts &amp; database via Supabase. As an Amazon Associate, Marvel India earns from qualifying purchases. Not affiliated with Marvel Studios or The Walt Disney Company.</p>
+    </footer>
   </div>
-</header>
-
-<main id="app"></main>
-
-<footer class="site-footer">
-  <p>Marvel India is a fan-made demo. Movie data via TMDB, OMDb, TVmaze &amp; Watchmode; character data via the Marvel Comics API; accounts, database and storage via Supabase. As an Amazon Associate, Marvel India earns from qualifying purchases. Not affiliated with Marvel Studios or The Walt Disney Company.</p>
-</footer>
-
-<!-- Mobile-only bottom tab bar (hidden on desktop via CSS) -->
-<nav class="bottom-nav">
-  <a href="#/home" class="tab-link"><span>🏠</span>Home</a>
-  <a href="#/search" class="tab-link"><span>🔍</span>Search</a>
-  <a href="#/roadmap" class="tab-link"><span>🗺️</span>Roadmap</a>
-  <a href="#/blog" class="tab-link"><span>📰</span>Blog</a>
-  <a href="#/shop" class="tab-link"><span>🛒</span>Shop</a>
-</nav>
+</div>
 
 <div id="modal-root"></div>
 

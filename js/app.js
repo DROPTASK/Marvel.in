@@ -115,12 +115,21 @@ function closeModal() { document.getElementById("modal-root").innerHTML = ""; }
 
 function posterCard(item) {
   const poster = item.poster || "assets/placeholder-poster.svg";
+  const title = item.title || item.name || "";
+  const year = item.year || (item.release_date ? String(item.release_date).slice(0, 4) : "");
+  const id = item.id != null ? item.id : (item.tmdb_id || "");
+  const safePoster = poster && String(poster).startsWith("http")
+    ? poster.replace("http://", "https://")
+    : (poster || "assets/placeholder-poster.svg");
   return `
-    <a class="card comic-panel" href="#/movie/${item.id}">
-      <div class="card-poster" style="background-image:url('${poster}')"></div>
+    <a class="card comic-panel" href="#/movie/${id}">
+      <div class="card-poster">
+        <img src="${safePoster}" alt="${esc(title)}" loading="lazy"
+          onerror="this.onerror=null;this.src='assets/placeholder-poster.svg'">
+      </div>
       <div class="card-body">
-        <h3>${esc(item.title)}</h3>
-        <span class="muted">${item.year || ""}</span>
+        <h3>${esc(title)}</h3>
+        <span class="muted">${year}</span>
       </div>
     </a>`;
 }
@@ -134,7 +143,10 @@ async function renderHome() {
   const doom = spotlight || roadmap.find(m => m.status === "upcoming") || roadmap[roadmap.length - 1];
   const doomTmdb = await enrichWithTmdb(doom.tmdb_query);
 
-  const doomPoster = doomTmdb ? MI_API.tmdb.posterUrl(doomTmdb.poster_path) : "assets/placeholder-poster.svg";
+  const doomPoster = (() => {
+    const p = doomTmdb ? MI_API.tmdb.posterUrl(doomTmdb.poster_path) : null;
+    return p ? String(p).replace("http://", "https://") : "assets/placeholder-poster.svg";
+  })();
   const doomBackdrop = doomTmdb ? MI_API.tmdb.backdropUrl(doomTmdb.backdrop_path) : null;
   const doomOverview = (doomTmdb && doomTmdb.overview) || doom.synopsis || "";
   const doomRelease = doom.release_date;
@@ -142,7 +154,8 @@ async function renderHome() {
   const recent = roadmap.slice(-12).reverse();
   const enriched = await Promise.all(recent.map(async m => {
     const t = await enrichWithTmdb(m.tmdb_query);
-    return { id: m.id, title: m.title, year: m.year, poster: t ? MI_API.tmdb.posterUrl(t.poster_path) : null };
+    const pp = t ? MI_API.tmdb.posterUrl(t.poster_path) : null;
+    return { id: m.id, title: m.title, year: m.year, poster: pp ? String(pp).replace("http://", "https://") : null };
   }));
 
   app.innerHTML = `
@@ -151,16 +164,18 @@ async function renderHome() {
         <div class="hero-copy">
           <p class="kicker">The Doomsday Clock is ticking</p>
           <h1>${esc(doom.title)}</h1>
-          <p class="hero-date">In cinemas ${fmtDate(doomRelease)}</p>
+          <div class="doom-date-row">
+            <p class="hero-date release-date">In cinemas ${fmtDate(doomRelease)}</p>
+            <div id="doom-countdown" class="countdown-inline"></div>
+          </div>
           <p class="hero-overview">${esc(doomOverview)}</p>
           <div class="hero-cta">
             <a href="#/movie/${doom.id}" class="pill primary">Full details</a>
             <a href="#/roadmap" class="pill ghost">Build your watch plan</a>
           </div>
         </div>
-        <div class="hero-poster"><img src="${doomPoster}" alt="${esc(doom.title)} poster" onerror="this.src='assets/placeholder-poster.svg'"></div>
+        <div class="hero-poster"><img src="${doomPoster ? String(doomPoster).replace('http://','https://') : 'assets/placeholder-poster.svg'}" alt="${esc(doom.title)} poster" onerror="this.onerror=null;this.src='assets/placeholder-poster.svg'"></div>
       </div>
-      <div id="doom-countdown" class="countdown"></div>
     </section>
 
     <section class="section">
@@ -216,23 +231,95 @@ function startCountdown(targetDateStr) {
 
 // ---------------------------------------------------------------- SEARCH
 async function renderSearch(query) {
+  const SUGGESTIONS = [
+    "Spider-Man", "Iron Man", "Avengers", "Thor", "Black Panther", "Doctor Strange",
+    "Guardians of the Galaxy", "Captain America", "Loki", "WandaVision", "Deadpool",
+    "X-Men", "Fantastic Four", "Ant-Man", "Shang-Chi", "Eternals", "Hawkeye"
+  ];
   app.innerHTML = `
     <section class="section">
       <h1>Search Marvel &amp; beyond</h1>
       <form id="search-form" class="search-form">
-        <input name="q" placeholder="Search movies, shows, actors…" value="${esc(query || "")}" autofocus>
+        <div class="search-wrap">
+          <input name="q" id="search-input" placeholder="Search movies, shows, actors…" value="${esc(query || "")}" autocomplete="off" autofocus>
+          <div class="search-suggestions" id="search-suggestions" hidden></div>
+        </div>
         <button class="pill primary" type="submit">Search</button>
       </form>
-      <div id="search-results">${query ? `<div class="loading">Searching…</div>` : `<p class="muted">Try "Spider-Man", "Loki", or "Doctor Strange".</p>`}</div>
-      ${!MI_API.tmdb.ready() ? `<p class="notice">Live search needs a free TMDB key in js/config.js.</p>` : ""}
+      <div id="search-results">${query ? `<div class="loading">Searching…</div>` : `<p class="muted">Try "Spider-Man", "Loki", or "Doctor Strange". Type to see suggestions.</p>`}</div>
+      ${!MI_API.tmdb.ready() ? `<p class="notice comic-panel" style="padding:12px">Live search needs a free TMDB key in js/config.js (or Vercel env via /api proxy).</p>` : ""}
     </section>`;
+
+  const input = document.getElementById("search-input");
+  const sugBox = document.getElementById("search-suggestions");
+  let sugTimer = null;
+
+  function showLocalSuggestions(val) {
+    const v = (val || "").trim().toLowerCase();
+    const list = !v
+      ? SUGGESTIONS.slice(0, 8)
+      : SUGGESTIONS.filter(s => s.toLowerCase().includes(v)).slice(0, 8);
+    if (!list.length) { sugBox.hidden = true; sugBox.innerHTML = ""; return; }
+    sugBox.innerHTML = list.map(s =>
+      `<button type="button" data-q="${esc(s)}">${esc(s)}</button>`
+    ).join("");
+    sugBox.hidden = false;
+    sugBox.querySelectorAll("button").forEach(btn => {
+      btn.onclick = () => {
+        input.value = btn.dataset.q;
+        sugBox.hidden = true;
+        location.hash = `#/search?q=${encodeURIComponent(btn.dataset.q)}`;
+      };
+    });
+  }
+
+  input.addEventListener("focus", () => showLocalSuggestions(input.value));
+  input.addEventListener("input", () => {
+    clearTimeout(sugTimer);
+    const val = input.value;
+    showLocalSuggestions(val);
+    // Live TMDB suggestions after short debounce
+    if (val.trim().length >= 2 && MI_API.tmdb.ready()) {
+      sugTimer = setTimeout(async () => {
+        const data = await MI_API.tmdb.search(val.trim());
+        const results = (data && data.results || [])
+          .filter(r => r.media_type !== "person")
+          .slice(0, 6);
+        if (!results.length) return;
+        sugBox.innerHTML = results.map(r => {
+          const title = r.title || r.name || "";
+          const year = (r.release_date || r.first_air_date || "").slice(0, 4);
+          return `<button type="button" data-q="${esc(title)}">${esc(title)}<span class="sug-meta">${year}</span></button>`;
+        }).join("");
+        sugBox.hidden = false;
+        sugBox.querySelectorAll("button").forEach(btn => {
+          btn.onclick = () => {
+            input.value = btn.dataset.q;
+            sugBox.hidden = true;
+            location.hash = `#/search?q=${encodeURIComponent(btn.dataset.q)}`;
+          };
+        });
+      }, 280);
+    }
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".search-wrap")) sugBox.hidden = true;
+  }, { once: false });
+
   document.getElementById("search-form").onsubmit = (e) => {
     e.preventDefault();
-    const q = new FormData(e.target).get("q");
+    sugBox.hidden = true;
+    const q = new FormData(e.target).get("q").trim();
     location.hash = `#/search?q=${encodeURIComponent(q)}`;
   };
-  if (!query || !MI_API.tmdb.ready()) return;
+
+  if (!query) return;
+  if (!MI_API.tmdb.ready()) {
+    document.getElementById("search-results").innerHTML = `<p class="muted">Add a TMDB key to enable live search.</p>`;
+    return;
+  }
   const data = await MI_API.tmdb.search(query);
+
   const results = (data && data.results || []).filter(r => r.media_type === "movie" || r.media_type === "tv");
   const box = document.getElementById("search-results");
   if (!results.length) { box.innerHTML = `<p class="muted">No results for "${esc(query)}".</p>`; return; }
@@ -261,7 +348,8 @@ async function renderMovie(id) {
   const overview = (tmdbFull && tmdbFull.overview) || (dbMovie && dbMovie.synopsis) || "";
   const releaseDate = (tmdbFull && tmdbFull.release_date) || (dbMovie && dbMovie.release_date);
   const runtime = (tmdbFull && tmdbFull.runtime) || (dbMovie && dbMovie.runtime_minutes);
-  const poster = tmdbFull && tmdbFull.poster_path ? MI_API.tmdb.posterUrl(tmdbFull.poster_path) : "assets/placeholder-poster.svg";
+  const posterRaw = tmdbFull && tmdbFull.poster_path ? MI_API.tmdb.posterUrl(tmdbFull.poster_path) : "assets/placeholder-poster.svg";
+  const poster = posterRaw ? String(posterRaw).replace("http://", "https://") : "assets/placeholder-poster.svg";
   const backdrop = tmdbFull && tmdbFull.backdrop_path ? MI_API.tmdb.backdropUrl(tmdbFull.backdrop_path) : null;
   const genres = tmdbFull && tmdbFull.genres || [];
   const cast = (tmdbFull && tmdbFull.credits && tmdbFull.credits.cast || []).slice(0, 12);
@@ -279,7 +367,6 @@ async function renderMovie(id) {
   app.innerHTML = `
     <section class="detail" style="${backdrop ? `--hero-bg:url('${backdrop}')` : ""}">
       <div class="detail-inner comic-panel">
-        <img class="detail-poster" src="${poster}" alt="${esc(title)} poster">
         <div class="detail-copy">
           <h1>${esc(title)}</h1>
           <p class="muted">${fmtDate(releaseDate)} ${runtime ? `· ${fmtMinutes(runtime)}` : ""} ${genres.length ? "· " + genres.map(g => g.name).join(", ") : ""}</p>
@@ -293,6 +380,10 @@ async function renderMovie(id) {
           <div class="hero-cta">
             <button class="pill ${wishlisted ? "primary" : ""}" id="wishlist-btn">${wishlisted ? "★ In wishlist" : "☆ Add to wishlist"}</button>
           </div>
+        </div>
+        <div class="detail-poster-wrap">
+          <img class="detail-poster" src="${poster}" alt="${esc(title)} poster"
+            onerror="this.onerror=null;this.src='assets/placeholder-poster.svg'">
         </div>
       </div>
     </section>
@@ -708,8 +799,13 @@ function parseHash() {
 function route() {
   window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   const { path, params } = parseHash();
-  const base = "#" + path.split("/").slice(0, 2).join("/");
-  document.querySelectorAll(".navlink, .tab-link").forEach(a => a.classList.toggle("active", a.getAttribute("href") === base));
+  const parts = path.split("/").filter(Boolean);
+  const top = parts[0] || "home";
+  document.querySelectorAll(".navlink").forEach(a => {
+    const href = a.getAttribute("href") || "";
+    const routeName = (href.replace("#/", "").split("/")[0]) || "home";
+    a.classList.toggle("active", routeName === top || (top === "movie" && routeName === "search"));
+  });
 
   if (path === "/home" || path === "/") return renderHome();
   if (path === "/search") return renderSearch(params.get("q"));
@@ -726,9 +822,27 @@ function route() {
   app.innerHTML = `<section class="section"><h1>Page not found</h1><a href="#/home" class="link">← Home</a></section>`;
 }
 
+function closeSidebar() {
+  document.getElementById("sidebar")?.classList.remove("open");
+  document.getElementById("sidebar-backdrop")?.classList.remove("open");
+}
+function openSidebar() {
+  document.getElementById("sidebar")?.classList.add("open");
+  document.getElementById("sidebar-backdrop")?.classList.add("open");
+}
+function initSidebar() {
+  document.getElementById("menu-toggle")?.addEventListener("click", openSidebar);
+  document.getElementById("sidebar-close")?.addEventListener("click", closeSidebar);
+  document.getElementById("sidebar-backdrop")?.addEventListener("click", closeSidebar);
+  document.querySelectorAll(".sidebar-nav .navlink").forEach(a => {
+    a.addEventListener("click", () => closeSidebar());
+  });
+}
+
 window.addEventListener("hashchange", route);
 window.addEventListener("mi-auth-changed", () => { updateAuthHeader(); });
 window.addEventListener("DOMContentLoaded", async () => {
+  initSidebar();
   await MI_AUTH.init();
   updateAuthHeader();
   if (currentUserId()) {
