@@ -18,7 +18,7 @@ function currentUsername() { return MI_AUTH.currentUsername(); }
 async function enrichWithTmdb(query) {
   if (!query || !MI_API.tmdb.ready()) return null;
   if (tmdbCache.has(query)) return tmdbCache.get(query);
-  const result = await MI_API.tmdb.findByTitle(query);
+  const result = await MI_API.tmdb.findByQuery(query);
   tmdbCache.set(query, result);
   return result;
 }
@@ -48,7 +48,7 @@ async function openNotificationsModal() {
   const enabled = profile && profile.notifications_enabled;
   document.getElementById("modal-root").innerHTML = `
     <div class="modal-backdrop" id="modal-backdrop">
-      <div class="modal comic-panel">
+      <div class="modal">
         <button class="modal-close" id="modal-close">&times;</button>
         <h2>Notifications</h2>
         <p class="muted">Get a browser notification the moment a new blog post goes live, while this tab is open.</p>
@@ -69,7 +69,7 @@ async function openNotificationsModal() {
 function openAuthModal() {
   document.getElementById("modal-root").innerHTML = `
     <div class="modal-backdrop" id="modal-backdrop">
-      <div class="modal comic-panel">
+      <div class="modal">
         <button class="modal-close" id="modal-close">&times;</button>
         <div class="tabs">
           <button class="tab active" data-tab="login">Log in</button>
@@ -115,12 +115,17 @@ function closeModal() { document.getElementById("modal-root").innerHTML = ""; }
 
 function posterCard(item) {
   const poster = item.poster || "assets/placeholder-poster.svg";
+  const title = item.title || item.name || "";
+  const year = item.year || (item.release_date ? item.release_date.slice(0,4) : "");
+  const id = item.id || item.tmdb_id || "";
   return `
-    <a class="card comic-panel" href="#/movie/${item.id}">
-      <div class="card-poster" style="background-image:url('${poster}')"></div>
-      <div class="card-body">
-        <h3>${esc(item.title)}</h3>
-        <span class="muted">${item.year || ""}</span>
+    <a class="movie-card" href="#/movie/${id}">
+      ${poster && !poster.includes("placeholder") 
+        ? `<img src="${poster}" alt="${esc(title)}" loading="lazy">`
+        : `<div class="poster-placeholder">${esc(title)}</div>`}
+      <div class="meta">
+        <h3>${esc(title)}</h3>
+        <span class="year">${year}</span>
       </div>
     </a>`;
 }
@@ -147,7 +152,7 @@ async function renderHome() {
 
   app.innerHTML = `
     <section class="hero" style="${doomBackdrop ? `--hero-bg:url('${doomBackdrop}')` : ""}">
-      <div class="hero-inner comic-panel">
+      <div class="hero-inner">
         <div class="hero-copy">
           <p class="kicker">The Doomsday Clock is ticking</p>
           <h1>${esc(doom.title)}</h1>
@@ -168,22 +173,22 @@ async function renderHome() {
         <h2>Marvel, freshly reeled in</h2>
         <a href="#/search" class="link">Search everything →</a>
       </div>
-      <div class="grid">${enriched.map(posterCard).join("")}</div>
+      <div class="grid-movies">${enriched.map(posterCard).join("")}</div>
     </section>
 
     <section class="section quicklinks">
-      <a class="quick comic-panel" href="#/timeline"><h3>MCU Timeline</h3><p>The story in chronological order, movie by movie.</p></a>
-      <a class="quick comic-panel" href="#/roadmap"><h3>Watch Plan</h3><p>A daily plan to finish everything before Doomsday.</p></a>
-      <a class="quick comic-panel" href="#/characters"><h3>Character Database</h3><p>Every hero, actor, and power set.</p></a>
-      <a class="quick comic-panel" href="#/blog"><h3>Blog</h3><p>Fan theories, reviews and news from the community.</p></a>
-      <a class="quick comic-panel" href="#/shop"><h3>Shop</h3><p>Merch we love, via Amazon.</p></a>
+      <a class="card card-body" href="#/timeline"><h3>MCU Timeline</h3><p>The story in chronological order, movie by movie.</p></a>
+      <a class="card card-body" href="#/roadmap"><h3>Watch Plan</h3><p>A daily plan to finish everything before Doomsday.</p></a>
+      <a class="card card-body" href="#/characters"><h3>Character Database</h3><p>Every hero, actor, and power set.</p></a>
+      <a class="card card-body" href="#/blog"><h3>Blog</h3><p>Fan theories, reviews and news from the community.</p></a>
+      <a class="card card-body" href="#/shop"><h3>Shop</h3><p>Merch we love, via Amazon.</p></a>
     </section>
   `;
   startCountdown(doomRelease);
 }
 
 function supabaseNotConfiguredNotice() {
-  return `<section class="section"><div class="notice comic-panel" style="padding:20px">
+  return `<section class="section"><div class="card card-body" style="padding:20px">
     <h2>Supabase isn't connected yet</h2>
     <p>Fill in <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> in <code>js/config.js</code>, then run the three SQL files in <code>supabase/</code> against your project. See the README for the full walkthrough.</p>
   </div></section>`;
@@ -224,7 +229,7 @@ async function renderSearch(query) {
         <button class="pill primary" type="submit">Search</button>
       </form>
       <div id="search-results">${query ? `<div class="loading">Searching…</div>` : `<p class="muted">Try "Spider-Man", "Loki", or "Doctor Strange".</p>`}</div>
-      ${!MI_API.tmdb.ready() ? `<p class="notice">Live search needs a free TMDB key in js/config.js.</p>` : ""}
+      
     </section>`;
   document.getElementById("search-form").onsubmit = (e) => {
     e.preventDefault();
@@ -232,11 +237,11 @@ async function renderSearch(query) {
     location.hash = `#/search?q=${encodeURIComponent(q)}`;
   };
   if (!query || !MI_API.tmdb.ready()) return;
-  const data = await MI_API.tmdb.search(query);
+  const data = await MI_API.tmdb.searchMovie(query);
   const results = (data && data.results || []).filter(r => r.media_type === "movie" || r.media_type === "tv");
   const box = document.getElementById("search-results");
   if (!results.length) { box.innerHTML = `<p class="muted">No results for "${esc(query)}".</p>`; return; }
-  box.innerHTML = `<div class="grid">${results.map(r => posterCard({
+  box.innerHTML = `<div class="grid-movies">${results.map(r => posterCard({
     id: "tmdb-" + r.id, title: r.title || r.name, year: (r.release_date || r.first_air_date || "").slice(0, 4),
     poster: MI_API.tmdb.posterUrl(r.poster_path)
   })).join("")}</div>`;
@@ -268,7 +273,7 @@ async function renderMovie(id) {
   const imdbId = tmdbFull && tmdbFull.external_ids && tmdbFull.external_ids.imdb_id;
 
   const [omdbData, watchSources] = await Promise.all([
-    imdbId && MI_API.omdb.ready() ? MI_API.omdb.byImdbId(imdbId) : Promise.resolve(null),
+    imdbId && MI_API.omdb.ready() ? MI_API.omdb.byImdb(imdbId) : Promise.resolve(null),
     imdbId && MI_API.watchmode.ready() ? watchmodeSourcesForImdb(imdbId) : Promise.resolve(null)
   ]);
 
@@ -278,7 +283,7 @@ async function renderMovie(id) {
 
   app.innerHTML = `
     <section class="detail" style="${backdrop ? `--hero-bg:url('${backdrop}')` : ""}">
-      <div class="detail-inner comic-panel">
+      <div class="detail-header">
         <img class="detail-poster" src="${poster}" alt="${esc(title)} poster">
         <div class="detail-copy">
           <h1>${esc(title)}</h1>
@@ -307,7 +312,7 @@ async function renderMovie(id) {
       <h2>Cast &amp; characters</h2>
       <div class="cast-grid">
         ${cast.map(c => `
-          <div class="cast-card comic-panel">
+          <div class="cast-card">
             <img src="${c.profile_path ? MI_API.tmdb.posterUrl(c.profile_path) : "assets/placeholder-avatar.svg"}" alt="${esc(c.name)}">
             <strong>${esc(c.name)}</strong>
             <span class="muted">as ${esc(c.character)}</span>
@@ -342,7 +347,7 @@ async function renderMovie(id) {
 }
 
 async function watchmodeSourcesForImdb(imdbId) {
-  const search = await MI_API.watchmode.searchByImdb(imdbId);
+  const search = await MI_API.watchmode.search(imdbId);
   const titleId = search && search.title_results && search.title_results[0] && search.title_results[0].id;
   if (!titleId) return null;
   return MI_API.watchmode.sources(titleId);
@@ -355,10 +360,10 @@ function renderWatchProviders(tmdbFull, watchSources) {
     ["flatrate", "rent", "buy"].forEach(kind => (tmdbProviders[kind] || []).forEach(p => flat.push({ name: p.provider_name, logo: MI_API.tmdb.posterUrl(p.logo_path), kind })));
   }
   if (watchSources && watchSources.length) watchSources.forEach(s => flat.push({ name: s.name, logo: null, kind: s.type }));
-  if (!flat.length) return `<p class="muted">No streaming data yet — add a TMDB and/or Watchmode key in js/config.js to populate this from live availability.</p>`;
+  if (!flat.length) return `<p class="muted">No streaming data yet — Streaming data is loaded via the secure server proxies.</p>`;
   const seen = new Set();
   const unique = flat.filter(p => { const k = p.name + p.kind; if (seen.has(k)) return false; seen.add(k); return true; });
-  return `<div class="providers">${unique.map(p => `<span class="provider-pill">${p.logo ? `<img src="${p.logo}" alt="">` : ""}${esc(p.name)} <em>${esc(p.kind)}</em></span>`).join("")}</div>`;
+  return `<div class="where-to-watch">${unique.map(p => `<span class="provider-chip">${p.logo ? `<img src="${p.logo}" alt="">` : ""}${esc(p.name)} <em>${esc(p.kind)}</em></span>`).join("")}</div>`;
 }
 
 function renderComments(comments) {
@@ -383,7 +388,7 @@ async function renderTimeline() {
         ${items.map(i => `
           <div class="timeline-item ${i.spotlight ? "spotlight" : ""}">
             <div class="timeline-year">${esc(i.year_label)}</div>
-            <div class="timeline-card comic-panel">
+            <div class="timeline-card">
               <h3>${esc(i.movie_title)}</h3>
               <p>${esc(i.blurb)}</p>
             </div>
@@ -446,7 +451,7 @@ async function renderRoadmap() {
       <h1>Movie Roadmap</h1>
       <p class="muted">Every MCU film, release order, phase by phase. Check off what you've watched — ${userId ? "saved to your account" : "log in to save your progress"}.</p>
 
-      <div class="watch-plan comic-panel">
+      <div class="watch-plan">
         <h2>Doomsday Watch Plan</h2>
         ${doom ? `
         <div class="watch-plan-stats">
@@ -456,7 +461,7 @@ async function renderRoadmap() {
           <div><strong>${fmtMinutes(remainingMinutesMustWatch)}</strong><span>must-watch remaining</span></div>
           <div><strong>~${fmtMinutes(minutesPerDayMust)}</strong><span>per day to finish must-watch in time</span></div>
         </div>
-        ${!userId ? `<p class="notice">Log in so your watched list (and this plan) is personal to you.</p>` : ""}
+        ${!userId ? `<p class="card card-body">Log in so your watched list (and this plan) is personal to you.</p>` : ""}
         ${plan.length ? `
           <h3>Suggested daily schedule (must-watch titles)</h3>
           <ol class="plan-list">
@@ -525,7 +530,7 @@ async function renderCharacters() {
 }
 function characterCard(c) {
   return `
-    <a class="char-card comic-panel" href="#/character/${c.id}">
+    <a class="char-card" href="#/character/${c.id}">
       <h3>${esc(c.name)}</h3>
       <p class="muted">Played by ${esc(c.actor)}</p>
       <p class="tag">${esc(c.affiliation || "")}</p>
@@ -538,15 +543,8 @@ async function renderCharacterDetail(id) {
   if (!c) { location.hash = "#/characters"; return; }
 
   let comicHits = [];
-  if (MI_API.marvel.ready()) {
-    const first = c.name.split(" / ")[1] || c.name.split(" / ")[0];
-    const search = await MI_API.marvel.searchCharacter(first.split(" ")[0]);
-    const match = search && search.data && search.data.results && search.data.results[0];
-    if (match) {
-      const comics = await MI_API.marvel.characterComics(match.id);
-      comicHits = (comics && comics.data && comics.data.results || []).slice(0, 8);
-    }
-  }
+  // Comics list endpoint can be added to the Edge Function later.
+  // For now we only surface the character search match.
 
   app.innerHTML = `
     <section class="section">
@@ -554,19 +552,11 @@ async function renderCharacterDetail(id) {
       <h1>${esc(c.name)}</h1>
       <p class="muted">Played by <strong>${esc(c.actor)}</strong> · First appearance: ${esc(c.first_appearance || "")}</p>
       <div class="char-detail-grid">
-        <div class="comic-panel char-fact"><h4>Aliases</h4><p>${(c.aliases || []).map(esc).join(", ")}</p></div>
-        <div class="comic-panel char-fact"><h4>Powers &amp; abilities</h4><p>${esc(c.powers || "")}</p></div>
-        <div class="comic-panel char-fact"><h4>Affiliation</h4><p>${esc(c.affiliation || "")}</p></div>
+        <div class="char-fact"><h4>Aliases</h4><p>${(c.aliases || []).map(esc).join(", ")}</p></div>
+        <div class="char-fact"><h4>Powers &amp; abilities</h4><p>${esc(c.powers || "")}</p></div>
+        <div class="char-fact"><h4>Affiliation</h4><p>${esc(c.affiliation || "")}</p></div>
       </div>
-      ${comicHits.length ? `
-        <h2>From the comics</h2>
-        <div class="grid">
-          ${comicHits.map(cm => `
-            <div class="card comic-panel">
-              <div class="card-poster" style="background-image:url('${cm.thumbnail.path}.${cm.thumbnail.extension}')"></div>
-              <div class="card-body"><h3>${esc(cm.title)}</h3></div>
-            </div>`).join("")}
-        </div>` : `<p class="notice">Add a free Marvel Comics API key pair in js/config.js to pull real comic appearances here.</p>`}
+      <p class="muted" style="margin-top:24px">Character bio from the community database. Live Marvel Comics enrichment is available via the secure server proxy.</p>
     </section>`;
 }
 
@@ -579,7 +569,7 @@ async function renderWishlist() {
   app.innerHTML = `
     <section class="section">
       <h1>${esc(currentUsername())}'s wishlist</h1>
-      ${list.length ? `<div class="grid">${list.map(i => posterCard({ id: i.item_id, title: i.title, year: "", poster: i.poster_url })).join("")}</div>`
+      ${list.length ? `<div class="grid-movies">${list.map(i => posterCard({ id: i.item_id, title: i.title, year: "", poster: i.poster_url })).join("")}</div>`
         : `<p class="muted">Nothing saved yet — open any title and tap "Add to wishlist".</p>`}
     </section>`;
 }
@@ -602,7 +592,7 @@ async function renderBlogList() {
 }
 function blogCard(p) {
   return `
-    <a class="blog-card comic-panel" href="#/blog/${p.slug}">
+    <a class="blog-card" href="#/blog/${p.slug}">
       ${p.cover_image_url ? `<div class="blog-cover" style="background-image:url('${p.cover_image_url}')"></div>` : ""}
       <div class="blog-card-body">
         <h3>${esc(p.title)}</h3>
@@ -650,7 +640,7 @@ function renderNewBlogForm() {
   app.innerHTML = `
     <section class="section">
       <h1>Write a post</h1>
-      <form id="new-post-form" class="stacked-form comic-panel">
+      <form id="new-post-form" class="stacked-form">
         <label>Title <input name="title" required></label>
         <label>Tags <input name="tags" placeholder="theory, review, phase-6"></label>
         <label>Cover image <input name="cover" type="file" accept="image/*"></label>
@@ -684,8 +674,8 @@ async function renderShop() {
           const url = new URL(p.amazon_url);
           if (tag && tag !== "your-affiliate-tag-21") url.searchParams.set("tag", tag);
           return `
-          <a class="shop-card comic-panel" href="${url.toString()}" target="_blank" rel="noopener sponsored">
-            <div class="card-poster" style="background-image:url('${p.image_url || "assets/placeholder-poster.svg"}')"></div>
+          <a class="shop-card" href="${url.toString()}" target="_blank" rel="noopener sponsored">
+            <div class="poster" style="background-image:url('${p.image_url || "assets/placeholder-poster.svg"}')"></div>
             <div class="card-body">
               <h3>${esc(p.title)}</h3>
               <p class="muted">${esc(p.category || "")} ${p.price_label ? "· " + esc(p.price_label) : ""}</p>
