@@ -89,15 +89,15 @@ window.MI_ROADMAP = [
   { title: "Marvel Zombies", year: 2025, phase: "phase5", type: "series", status: "released", tmdbQuery: "Marvel Zombies", poster: "https://image.tmdb.org/t/p/w500/mwKj9ERGFXsWot0nXgQ5yMQf9I7.jpg", runtimeMinutes: 180, priority: "recommended" },
 
   // --- Phase 6 ---
-  { title: "Spider-Man 4 (MCU)", year: 2026, phase: "phase6", type: "movie", status: "upcoming", tmdbQuery: null, poster: "https://image.tmdb.org/t/p/w500/1g0dhYtq4irTY1GPXvft6k4YLjm.jpg", priority: "must-watch",
+  { title: "Spider-Man 4 (MCU)", year: 2026, releaseDate: "2026-07-24", phase: "phase6", type: "movie", status: "upcoming", tmdbQuery: null, poster: "https://image.tmdb.org/t/p/w500/1g0dhYtq4irTY1GPXvft6k4YLjm.jpg", priority: "must-watch",
     synopsisFallback: "Peter Parker operates as a street-level hero in New York with his past erased, facing new gang threats and multiverse ripples." },
-  { title: "Avengers: Doomsday", year: 2026, phase: "phase6", type: "movie", status: "upcoming", tmdbQuery: "Avengers Doomsday", spotlight: true, poster: "https://image.tmdb.org/t/p/w500/jzPwsojjFStf5lR5Nm07w2hH56G.jpg",
+  { title: "Avengers: Doomsday", year: 2026, releaseDate: "2026-12-18", phase: "phase6", type: "movie", status: "upcoming", tmdbQuery: "Avengers Doomsday", spotlight: true, poster: "https://image.tmdb.org/t/p/w500/jzPwsojjFStf5lR5Nm07w2hH56G.jpg",
     synopsisFallback: "The Multiverse Saga's centerpiece — Doctor Doom rises as the Avengers, the Fantastic Four, X-Men and variants from across the multiverse are forced onto one battlefield." },
-  { title: "Avengers: Secret Wars", year: 2027, phase: "phase6", type: "movie", status: "upcoming", tmdbQuery: "Avengers Secret Wars", poster: "https://image.tmdb.org/t/p/w500/f0YBuh4hyiAheXhh4JnJWoKi9g5.jpg",
+  { title: "Avengers: Secret Wars", year: 2027, releaseDate: "2027-12-17", phase: "phase6", type: "movie", status: "upcoming", tmdbQuery: "Avengers Secret Wars", poster: "https://image.tmdb.org/t/p/w500/f0YBuh4hyiAheXhh4JnJWoKi9g5.jpg",
     synopsisFallback: "The saga-closing event pulling together threads from Loki, What If...?, and the multiverse arc built since Endgame." },
-  { title: "Blade", year: 2027, phase: "phase6", type: "movie", status: "upcoming", tmdbQuery: "Blade", poster: "https://image.tmdb.org/t/p/w500/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg",
+  { title: "Blade", year: 2027, releaseDate: "2027-11-05", phase: "phase6", type: "movie", status: "upcoming", tmdbQuery: "Blade", poster: "https://image.tmdb.org/t/p/w500/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg",
     synopsisFallback: "Eric Brooks hunts the bloodsucking vampire underworld in the dark supernatural corner of the MCU." },
-  { title: "Armor Wars", year: 2027, phase: "phase6", type: "movie", status: "upcoming", tmdbQuery: null, poster: "https://image.tmdb.org/t/p/w500/78lPtwv72eTNqFW9COBYI0dWDJa.jpg",
+  { title: "Armor Wars", year: 2027, releaseDate: "2027-05-07", phase: "phase6", type: "movie", status: "upcoming", tmdbQuery: null, poster: "https://image.tmdb.org/t/p/w500/78lPtwv72eTNqFW9COBYI0dWDJa.jpg",
     synopsisFallback: "James Rhodes protects Tony Stark's legacy when high-tech Stark armor blueprints fall into black-market and rogue military hands." },
 
   // --- X-Men Saga (Fox-Marvel & Mutant Multiverse) ---

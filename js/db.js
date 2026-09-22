@@ -17,23 +17,51 @@ const MI_DB = (() => {
 
   function localRoadmap() {
     if (!window.MI_ROADMAP) return [];
-    return window.MI_ROADMAP.map((m, idx) => ({
-      id: m.id || m.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-      title: m.title,
-      year: m.year,
-      phase: m.phase,
-      saga: m.phase === "xmen" ? "Mutant Saga" : m.phase === "series" ? "Disney+ Series" : (m.phase === "phase6" || m.phase === "phase5" || m.phase === "phase4" ? "Multiverse Saga" : "Infinity Saga"),
-      type: m.type || (m.phase === "xmen" ? "xmen" : m.phase === "series" ? "series" : "movie"),
-      status: m.status || "released",
-      release_date: m.releaseDate || `${m.year}-05-01`,
-      runtime_minutes: m.runtimeMinutes || 120,
-      priority: m.priority || "must-watch",
-      synopsis: m.synopsisFallback || null,
-      poster: m.poster || null,
-      tmdb_query: m.tmdbQuery,
-      spotlight: !!m.spotlight,
-      sort_order: (idx + 1) * 10
-    }));
+    return window.MI_ROADMAP.map((m, idx) => {
+      const isDoomsday = m.title && m.title.includes("Doomsday");
+      const defDate = isDoomsday ? "2026-12-18" : (m.status === "upcoming" ? `${m.year}-12-18` : `${m.year}-05-01`);
+      return {
+        id: m.id || m.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        title: m.title,
+        year: m.year,
+        phase: m.phase,
+        saga: m.phase === "xmen" ? "Mutant Saga" : m.phase === "series" ? "Disney+ Series" : (m.phase === "phase6" || m.phase === "phase5" || m.phase === "phase4" ? "Multiverse Saga" : "Infinity Saga"),
+        type: m.type || (m.phase === "xmen" ? "xmen" : m.phase === "series" ? "series" : "movie"),
+        status: m.status || "released",
+        release_date: m.releaseDate || defDate,
+        runtime_minutes: m.runtimeMinutes || 120,
+        priority: m.priority || "must-watch",
+        synopsis: m.synopsisFallback || null,
+        poster: m.poster || null,
+        tmdb_query: m.tmdbQuery,
+        spotlight: isDoomsday || !!m.spotlight,
+        sort_order: (idx + 1) * 10
+      };
+    });
+  }
+
+  function getCustomMovies() {
+    try {
+      return JSON.parse(localStorage.getItem("mi_custom_movies") || "{}");
+    } catch {
+      return {};
+    }
+  }
+
+  function setCustomMovieLocal(movie) {
+    try {
+      const custom = getCustomMovies();
+      custom[movie.id] = movie;
+      localStorage.setItem("mi_custom_movies", JSON.stringify(custom));
+    } catch {}
+  }
+
+  function deleteCustomMovieLocal(id) {
+    try {
+      const custom = getCustomMovies();
+      delete custom[id];
+      localStorage.setItem("mi_custom_movies", JSON.stringify(custom));
+    } catch {}
   }
 
   function localTimeline() {
@@ -68,62 +96,140 @@ const MI_DB = (() => {
   // ------------------------------------------------------------- movies
   async function getRoadmap() {
     const local = localRoadmap();
-    const bail = guard(null);
-    if (bail !== null) return local;
-    try {
-      const { data, error } = await sb().from("movies").select("*").order("sort_order");
-      if (error || !data || !data.length) return local;
+    const customLocal = getCustomMovies();
+    let dbData = [];
 
-      // Merge DB records with local catalog by normalized title.
-      // This GUARANTEES that there are ZERO dual movies, and that the high-resolution
-      // poster/banner from the local catalog is preserved on every single title.
-      const map = new Map();
-      local.forEach(m => {
-        map.set(normTitle(m.title), { ...m });
-      });
-
-      data.forEach(dbItem => {
-        if (!dbItem || !dbItem.title) return;
-        const key = normTitle(dbItem.title);
-        const existing = map.get(key);
-
-        const safePoster = (existing && existing.poster && existing.poster !== "assets/placeholder-poster.svg")
-          ? existing.poster
-          : ((dbItem.poster && String(dbItem.poster).startsWith("http")) ? dbItem.poster : null);
-
-        if (existing) {
-          map.set(key, {
-            ...existing,
-            ...dbItem,
-            db_id: dbItem.id,
-            id: dbItem.id || existing.id,
-            poster: safePoster,
-            type: existing.type || dbItem.type || (dbItem.phase === "xmen" ? "xmen" : dbItem.phase === "series" ? "series" : "movie"),
-            status: dbItem.status || existing.status,
-            runtime_minutes: dbItem.runtime_minutes || existing.runtime_minutes,
-            priority: dbItem.priority || existing.priority,
-            synopsis: dbItem.synopsis || existing.synopsis,
-            tmdb_query: dbItem.tmdb_query || existing.tmdb_query
-          });
-        } else {
-          // If DB has a title not in local, add it but try to enrich poster if missing
-          map.set(key, {
-            ...dbItem,
-            db_id: dbItem.id,
-            poster: safePoster,
-            type: dbItem.type || (dbItem.phase === "xmen" ? "xmen" : dbItem.phase === "series" ? "series" : "movie")
-          });
+    if (MI_SUPABASE.ready) {
+      try {
+        const { data, error } = await sb().from("movies").select("*").order("sort_order");
+        if (!error && data && data.length) {
+          dbData = data;
         }
-      });
+      } catch (err) {
+        console.warn("[MarvelIndia] Could not fetch movies from Supabase:", err);
+      }
+    }
 
-      // Filter out duplicates and return sorted
-      const result = Array.from(map.values())
-        .filter(m => m && m.title)
-        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    // Merge: local defaults -> Supabase DB data -> local custom edits
+    const map = new Map();
+    local.forEach(m => {
+      map.set(normTitle(m.title), { ...m });
+    });
 
-      return result;
-    } catch {
-      return local;
+    dbData.forEach(dbItem => {
+      if (!dbItem || !dbItem.title) return;
+      const key = normTitle(dbItem.title);
+      const existing = map.get(key);
+
+      const safePoster = (existing && existing.poster && existing.poster !== "assets/placeholder-poster.svg")
+        ? existing.poster
+        : ((dbItem.poster && String(dbItem.poster).startsWith("http")) ? dbItem.poster : null);
+
+      let relDate = dbItem.release_date || (existing ? existing.release_date : null);
+      if (dbItem.title && dbItem.title.includes("Doomsday") && (!relDate || relDate === "2026-05-01")) {
+        relDate = "2026-12-18";
+      }
+
+      if (existing) {
+        map.set(key, {
+          ...existing,
+          ...dbItem,
+          db_id: dbItem.id,
+          id: dbItem.id || existing.id,
+          release_date: relDate,
+          poster: safePoster,
+          type: existing.type || dbItem.type || (dbItem.phase === "xmen" ? "xmen" : dbItem.phase === "series" ? "series" : "movie"),
+          status: dbItem.status || existing.status,
+          runtime_minutes: dbItem.runtime_minutes || existing.runtime_minutes,
+          priority: dbItem.priority || existing.priority,
+          synopsis: dbItem.synopsis || existing.synopsis,
+          tmdb_query: dbItem.tmdb_query || existing.tmdb_query
+        });
+      } else {
+        map.set(key, {
+          ...dbItem,
+          db_id: dbItem.id,
+          release_date: relDate,
+          poster: safePoster,
+          type: dbItem.type || (dbItem.phase === "xmen" ? "xmen" : dbItem.phase === "series" ? "series" : "movie")
+        });
+      }
+    });
+
+    // Apply explicit local custom edits (from roadmap editor)
+    Object.values(customLocal).forEach(c => {
+      if (!c || !c.title) return;
+      const key = normTitle(c.title);
+      const existing = map.get(key);
+      map.set(key, { ...(existing || {}), ...c });
+    });
+
+    // Sanitize Doomsday date
+    const result = Array.from(map.values())
+      .filter(m => m && m.title)
+      .map(m => {
+        if (m.title && m.title.includes("Doomsday") && (!m.release_date || m.release_date === "2026-05-01")) {
+          return { ...m, release_date: "2026-12-18", spotlight: true };
+        }
+        return m;
+      })
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+    return result;
+  }
+
+  async function upsertMovie(movie) {
+    if (!movie || !movie.title) throw new Error("Title is required");
+    const id = movie.id || movie.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    let relDate = movie.release_date || `${movie.year || 2026}-12-18`;
+    if (movie.title.includes("Doomsday") && (!relDate || relDate === "2026-05-01")) {
+      relDate = "2026-12-18";
+    }
+
+    const payload = {
+      id,
+      title: movie.title.trim(),
+      year: parseInt(movie.year, 10) || new Date().getFullYear(),
+      phase: movie.phase || "phase6",
+      saga: movie.saga || (movie.phase === "xmen" ? "Mutant Saga" : movie.phase === "series" ? "Disney+ Series" : (movie.phase === "phase6" || movie.phase === "phase5" || movie.phase === "phase4" ? "Multiverse Saga" : "Infinity Saga")),
+      type: movie.type || (movie.phase === "xmen" ? "xmen" : movie.phase === "series" ? "series" : "movie"),
+      status: movie.status || "upcoming",
+      release_date: relDate,
+      runtime_minutes: parseInt(movie.runtime_minutes, 10) || 120,
+      priority: movie.priority || "must-watch",
+      synopsis: movie.synopsis || null,
+      tmdb_query: movie.tmdb_query || movie.title,
+      spotlight: !!movie.spotlight,
+      poster: movie.poster || null,
+      sort_order: parseInt(movie.sort_order, 10) || 500
+    };
+
+    // Save locally
+    setCustomMovieLocal(payload);
+
+    // Save to Supabase if configured
+    if (MI_SUPABASE.ready) {
+      try {
+        const { error } = await sb().from("movies").upsert(payload, { onConflict: "id" });
+        if (error) {
+          console.warn("[MarvelIndia] Supabase upsert error (saved locally):", error.message);
+        }
+      } catch (err) {
+        console.warn("[MarvelIndia] Failed saving movie to Supabase:", err);
+      }
+    }
+    return payload;
+  }
+
+  async function deleteMovie(id) {
+    if (!id) return;
+    deleteCustomMovieLocal(id);
+    if (MI_SUPABASE.ready) {
+      try {
+        await sb().from("movies").delete().eq("id", id);
+      } catch (err) {
+        console.warn("[MarvelIndia] Failed deleting movie from Supabase:", err);
+      }
     }
   }
 
@@ -526,7 +632,7 @@ const MI_DB = (() => {
   }
 
   return {
-    getRoadmap, getMovie, getSpotlightMovie,
+    getRoadmap, getMovie, getSpotlightMovie, upsertMovie, deleteMovie,
     getTimeline,
     getCharacters, getCharacterById,
     getWishlist, isWishlisted, toggleWishlist,

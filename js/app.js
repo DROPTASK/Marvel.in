@@ -417,7 +417,10 @@ async function renderHome() {
   })();
   const doomBackdrop = (doomTmdb && doomTmdb.backdrop_path) ? MI_API.tmdb.backdropUrl(doomTmdb.backdrop_path) : null;
   const doomOverview = (doomTmdb && doomTmdb.overview) || doom.synopsis || "Victor von Doom rises as the multiverse fractures — Earth's Mightiest Heroes assemble for the ultimate confrontation.";
-  const doomRelease = doom.release_date;
+  let doomRelease = doom.release_date;
+  if (doom.title && doom.title.includes("Doomsday") && (!doomRelease || doomRelease === "2026-05-01")) {
+    doomRelease = "2026-12-18";
+  }
 
   const recent = (roadmap || []).slice(-12).reverse();
   const enriched = await Promise.all(recent.map(async m => {
@@ -533,7 +536,11 @@ function supabaseNotConfiguredNotice() {
 function startCountdown(targetDateStr) {
   const box = document.getElementById("doom-countdown");
   if (!box) return;
-  const target = new Date(targetDateStr || "2026-12-18").getTime();
+  let cleanDate = targetDateStr;
+  if (!cleanDate || cleanDate === "2026-05-01") {
+    cleanDate = "2026-12-18";
+  }
+  const target = new Date(cleanDate).getTime();
   function tick() {
     const diff = target - Date.now();
     if (isNaN(target) || diff <= 0) {
@@ -1156,7 +1163,226 @@ async function renderTimeline() {
   });
 }
 
-// ---------------------------------------------------------------- ROADMAP (+ Doomsday watch plan)
+// ---------------------------------------------------------------- ROADMAP (+ Doomsday watch plan + DB Editor)
+let roadmapEditingActive = false;
+
+function showToast(message, isError = false) {
+  const existing = document.querySelector(".app-toast");
+  if (existing) existing.remove();
+  const toast = document.createElement("div");
+  toast.className = `app-toast ${isError ? "toast-error" : ""}`;
+  toast.innerHTML = `<span>${esc(message)}</span>`;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.transition = "opacity 0.3s ease, transform 0.3s ease";
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(10px)";
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+
+function openRoadmapMovieEditorModal(movieId, roadmap) {
+  const modalRoot = document.getElementById("modal-root");
+  const movie = movieId ? roadmap.find(m => m.id === movieId) : null;
+  const isEdit = !!movie;
+
+  const title = movie ? movie.title : "";
+  let relDate = (movie && movie.release_date) ? movie.release_date : "";
+  if (movie && movie.id === "avengers-doomsday" && (!relDate || relDate === "2026-05-01")) {
+    relDate = "2026-12-18";
+  }
+  const year = movie ? movie.year : new Date().getFullYear();
+  const phase = movie ? movie.phase : "phase6";
+  const saga = movie ? (movie.saga || "Multiverse Saga") : "Multiverse Saga";
+  const type = movie ? (movie.type || (phase === "series" ? "series" : phase === "xmen" ? "xmen" : "movie")) : "movie";
+  const status = movie ? movie.status : "upcoming";
+  const priority = movie ? movie.priority : "must-watch";
+  const runtime = movie ? (movie.runtime_minutes || 130) : 130;
+  const tmdbQuery = movie ? (movie.tmdb_query || movie.title) : "";
+  const poster = movie ? (movie.poster || "") : "";
+  const synopsis = movie ? (movie.synopsis || "") : "";
+  const isSpotlight = movie ? (movie.is_spotlight || movie.id === "avengers-doomsday") : false;
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" id="modal-backdrop">
+      <div class="modal modal-wide comic-panel">
+        <button class="modal-close" id="modal-close" aria-label="Close modal">&times;</button>
+        <h2>${isEdit ? `Edit Project: ${esc(title)}` : "Add Project to Roadmap"}</h2>
+        <p class="muted" style="margin-bottom:14px;">Changes are stored directly in the database and synced across the roadmap.</p>
+        
+        <form id="roadmap-movie-form">
+          <label>Project Title
+            <input name="title" required value="${esc(title)}" placeholder="e.g. Avengers: Doomsday">
+          </label>
+
+          <div class="form-grid-2">
+            <label>Release Date (YYYY-MM-DD)
+              <input name="release_date" type="date" value="${esc(relDate)}" placeholder="2026-12-18">
+            </label>
+            <label>Release Year
+              <input name="year" type="number" required min="1990" max="2035" value="${year}">
+            </label>
+          </div>
+
+          <div class="form-grid-2">
+            <label>MCU Phase
+              <select name="phase">
+                <option value="phase6" ${phase === "phase6" ? "selected" : ""}>Phase Six (2026–2027)</option>
+                <option value="phase5" ${phase === "phase5" ? "selected" : ""}>Phase Five (2023–2025)</option>
+                <option value="phase4" ${phase === "phase4" ? "selected" : ""}>Phase Four (2021–2022)</option>
+                <option value="phase3" ${phase === "phase3" ? "selected" : ""}>Phase Three (2016–2019)</option>
+                <option value="phase2" ${phase === "phase2" ? "selected" : ""}>Phase Two (2013–2015)</option>
+                <option value="phase1" ${phase === "phase1" ? "selected" : ""}>Phase One (2008–2012)</option>
+                <option value="series" ${phase === "series" ? "selected" : ""}>Disney+ Web Series</option>
+                <option value="xmen" ${phase === "xmen" ? "selected" : ""}>Mutant Saga &amp; X-Men</option>
+              </select>
+            </label>
+            <label>Saga
+              <select name="saga">
+                <option value="Multiverse Saga" ${saga === "Multiverse Saga" ? "selected" : ""}>Multiverse Saga</option>
+                <option value="Infinity Saga" ${saga === "Infinity Saga" ? "selected" : ""}>Infinity Saga</option>
+                <option value="Marvel Television" ${saga === "Marvel Television" ? "selected" : ""}>Marvel Television</option>
+                <option value="Fox-Marvel Universe" ${saga === "Fox-Marvel Universe" ? "selected" : ""}>Fox-Marvel Universe</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="form-grid-2">
+            <label>Content Type
+              <select name="type">
+                <option value="movie" ${type === "movie" ? "selected" : ""}>Theatrical Film</option>
+                <option value="series" ${type === "series" ? "selected" : ""}>Disney+ Web Series</option>
+                <option value="xmen" ${type === "xmen" ? "selected" : ""}>X-Men / Mutant Film</option>
+              </select>
+            </label>
+            <label>Status
+              <select name="status">
+                <option value="upcoming" ${status === "upcoming" ? "selected" : ""}>Upcoming (In Theatres Soon)</option>
+                <option value="released" ${status === "released" ? "selected" : ""}>Released (Available)</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="form-grid-2">
+            <label>Roadmap Priority
+              <select name="priority">
+                <option value="must-watch" ${priority === "must-watch" ? "selected" : ""}>Must-Watch (Core Lore)</option>
+                <option value="recommended" ${priority === "recommended" ? "selected" : ""}>Recommended (Key Characters)</option>
+                <option value="optional" ${priority === "optional" ? "selected" : ""}>Optional (Side Story)</option>
+              </select>
+            </label>
+            <label>Runtime (minutes)
+              <input name="runtime_minutes" type="number" min="1" max="400" value="${runtime}">
+            </label>
+          </div>
+
+          <div class="form-grid-2">
+            <label>TMDB Query
+              <input name="tmdb_query" value="${esc(tmdbQuery)}" placeholder="e.g. Avengers Doomsday">
+            </label>
+            <label>Custom Poster URL (optional)
+              <input name="poster" value="${esc(poster)}" placeholder="https://...">
+            </label>
+          </div>
+
+          <label class="form-row-checkbox">
+            <input type="checkbox" name="is_spotlight" ${isSpotlight ? "checked" : ""}>
+            <span>Spotlight Feature (powers Home Doomsday Chronometer &amp; Hero Banner)</span>
+          </label>
+
+          <label>Synopsis
+            <textarea name="synopsis" rows="3" placeholder="Premise and story overview...">${esc(synopsis)}</textarea>
+          </label>
+
+          <div class="modal-btn-row">
+            <button type="submit" class="pill primary" id="save-movie-btn">Save to Database</button>
+            <button type="button" class="pill ghost" id="modal-cancel-btn">Cancel</button>
+            ${isEdit ? `<button type="button" class="btn-delete-project" id="delete-movie-btn">Delete Project</button>` : ""}
+          </div>
+        </form>
+      </div>
+    </div>`;
+
+  const close = () => { modalRoot.innerHTML = ""; };
+  document.getElementById("modal-close")?.addEventListener("click", close);
+  document.getElementById("modal-cancel-btn")?.addEventListener("click", close);
+  document.getElementById("modal-backdrop")?.addEventListener("click", (e) => {
+    if (e.target.id === "modal-backdrop") close();
+  });
+
+  if (isEdit) {
+    document.getElementById("delete-movie-btn")?.addEventListener("click", async () => {
+      if (!confirm(`Are you sure you want to remove "${movie.title}" from the roadmap?`)) return;
+      const delBtn = document.getElementById("delete-movie-btn");
+      delBtn.disabled = true;
+      delBtn.textContent = "Deleting…";
+      try {
+        await MI_DB.deleteMovie(movie.id);
+        showToast(`"${movie.title}" removed from roadmap.`);
+        close();
+        renderRoadmap();
+      } catch (err) {
+        showToast("Error deleting: " + err.message, true);
+        delBtn.disabled = false;
+        delBtn.textContent = "Delete Project";
+      }
+    });
+  }
+
+  const form = document.getElementById("roadmap-movie-form");
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const saveBtn = document.getElementById("save-movie-btn");
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving to Database…";
+
+    const fd = new FormData(form);
+    const titleVal = fd.get("title")?.toString().trim();
+    const relDateVal = fd.get("release_date")?.toString().trim() || null;
+    const yearVal = parseInt(fd.get("year")?.toString() || "", 10) || (relDateVal ? parseInt(relDateVal.slice(0, 4), 10) : 2026);
+    const phaseVal = fd.get("phase")?.toString() || "phase6";
+    const sagaVal = fd.get("saga")?.toString() || "Multiverse Saga";
+    const typeVal = fd.get("type")?.toString() || "movie";
+    const statusVal = fd.get("status")?.toString() || "upcoming";
+    const priorityVal = fd.get("priority")?.toString() || "must-watch";
+    const runtimeVal = parseInt(fd.get("runtime_minutes")?.toString() || "130", 10) || 130;
+    const tmdbVal = fd.get("tmdb_query")?.toString().trim() || titleVal;
+    const posterVal = fd.get("poster")?.toString().trim() || null;
+    const synopsisVal = fd.get("synopsis")?.toString().trim() || "";
+    const isSpotlightVal = fd.get("is_spotlight") === "on";
+
+    const idVal = movie ? movie.id : (titleVal.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `movie-${Date.now()}`);
+
+    const payload = {
+      id: idVal,
+      title: titleVal,
+      release_date: relDateVal,
+      year: yearVal,
+      phase: phaseVal,
+      saga: sagaVal,
+      type: typeVal,
+      status: statusVal,
+      priority: priorityVal,
+      runtime_minutes: runtimeVal,
+      tmdb_query: tmdbVal,
+      poster: posterVal,
+      synopsis: synopsisVal,
+      is_spotlight: isSpotlightVal
+    };
+
+    try {
+      await MI_DB.upsertMovie(payload);
+      showToast(`"${titleVal}" saved to database!`);
+      close();
+      renderRoadmap();
+    } catch (err) {
+      showToast("Failed to save: " + err.message, true);
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Save to Database";
+    }
+  };
+}
+
 async function renderRoadmap() {
   app.innerHTML = `<div class="loading">Building your roadmap…</div>`;
   const userId = currentUserId();
@@ -1177,9 +1403,13 @@ async function renderRoadmap() {
   roadmap.forEach(m => (byPhase[m.phase] = byPhase[m.phase] || []).push(m));
 
   // ---- Doomsday watch-plan calculator ----
-  const doomsdayDate = doom ? new Date(doom.release_date) : null;
+  let doomsdayDateStr = doom ? doom.release_date : "2026-12-18";
+  if (!doomsdayDateStr || doomsdayDateStr === "2026-05-01") {
+    doomsdayDateStr = "2026-12-18";
+  }
+  const doomsdayDate = new Date(doomsdayDateStr);
   const now = new Date();
-  const daysLeft = doomsdayDate ? Math.max(1, Math.ceil((doomsdayDate - now) / 86400000)) : null;
+  const daysLeft = Math.max(1, Math.ceil((doomsdayDate - now) / 86400000));
   const unwatched = roadmap.filter(m => m.status === "released" && !watchedSet.has(m.id));
   const mustWatchUnwatched = unwatched.filter(m => m.priority === "must-watch");
   const remainingMinutesAll = unwatched.reduce((s, m) => s + m.runtime_minutes, 0);
@@ -1192,18 +1422,29 @@ async function renderRoadmap() {
       <h1>Marvel Roadmap &amp; Checklist</h1>
       <p class="muted">Every MCU film, Disney+ web series, and X-Men project. Check off what you've watched — ${userId ? "saved to your account" : "log in to save your progress"}.</p>
 
+      <div class="roadmap-toolbar">
+        <div class="roadmap-toolbar-info">
+          <span>DATABASE-POWERED ROADMAP</span>
+          <span class="roadmap-db-indicator">● LIVE SYNC</span>
+        </div>
+        <div class="roadmap-toolbar-actions">
+          <button type="button" class="roadmap-edit-toggle ${roadmapEditingActive ? "active" : ""}" id="roadmap-edit-toggle">
+            ${roadmapEditingActive ? "✓ Done Editing" : "✎ Edit Projects"}
+          </button>
+          <button type="button" class="roadmap-add-btn" id="roadmap-add-btn">+ Add Project</button>
+        </div>
+      </div>
+
       <div class="watch-plan comic-panel">
         <h2>Doomsday Watch Plan</h2>
-        ${doom ? `
         <div class="watch-plan-stats">
-          <div><strong>${daysLeft}</strong><span>days until ${esc(doom.title)}</span></div>
+          <div><strong>${daysLeft}</strong><span>days until ${esc((doom && doom.title) || "Avengers: Doomsday")} (${fmtDate(doomsdayDateStr)})</span></div>
           <div><strong>${unwatched.length}</strong><span>unwatched titles</span></div>
           <div><strong>${fmtMinutes(remainingMinutesAll)}</strong><span>total remaining runtime</span></div>
           <div><strong>${fmtMinutes(remainingMinutesMustWatch)}</strong><span>must-watch remaining</span></div>
           <div><strong>~${fmtMinutes(minutesPerDayMust)}</strong><span>per day to finish must-watch in time</span></div>
         </div>
         ${!userId ? `<p class="notice">Log in so your watched list (and this plan) is personal to you.</p>` : ""}
-        ` : `<p class="muted">Avengers: Doomsday release date is set to power this calculator.</p>`}
       </div>
 
       <div class="filter-bar" id="roadmap-filter-bar">
@@ -1214,7 +1455,7 @@ async function renderRoadmap() {
         <button type="button" class="filter-btn" data-roadmap-filter="xmen">X-Men Universe</button>
       </div>
 
-      <div id="roadmap-phases-container">
+      <div id="roadmap-phases-container" class="${roadmapEditingActive ? "roadmap-editing-active" : ""}">
       ${Object.keys(phaseMeta).map(phaseId => {
         const movies = byPhase[phaseId] || [];
         if (!movies.length) return "";
@@ -1235,7 +1476,8 @@ async function renderRoadmap() {
                   <span class="tag tag-type">${itemType.toUpperCase()}</span>
                   <span class="tag priority-${m.priority}">${m.priority.replace("-", " ")}</span>
                   <span class="muted">${fmtMinutes(m.runtime_minutes)}</span>
-                  ${m.status === "upcoming" ? `<span class="tag upcoming-tag">Upcoming</span>` : ""}
+                  ${m.status === "upcoming" ? `<span class="tag upcoming-tag">${m.release_date ? fmtDate(m.release_date) : "Upcoming"}</span>` : ""}
+                  <button type="button" class="roadmap-item-edit-btn" data-edit-movie="${esc(m.id)}" title="Edit in Database">Edit ✎</button>
                 </span>
               </li>`;
             }).join("")}
@@ -1258,6 +1500,36 @@ async function renderRoadmap() {
         }
       });
     };
+  });
+
+  // Edit projects toggle button
+  document.getElementById("roadmap-edit-toggle")?.addEventListener("click", () => {
+    roadmapEditingActive = !roadmapEditingActive;
+    const container = document.getElementById("roadmap-phases-container");
+    const toggleBtn = document.getElementById("roadmap-edit-toggle");
+    if (roadmapEditingActive) {
+      container?.classList.add("roadmap-editing-active");
+      toggleBtn?.classList.add("active");
+      if (toggleBtn) toggleBtn.textContent = "✓ Done Editing";
+    } else {
+      container?.classList.remove("roadmap-editing-active");
+      toggleBtn?.classList.remove("active");
+      if (toggleBtn) toggleBtn.textContent = "✎ Edit Projects";
+    }
+  });
+
+  // Add project button
+  document.getElementById("roadmap-add-btn")?.addEventListener("click", () => {
+    openRoadmapMovieEditorModal(null, roadmap);
+  });
+
+  // Item edit buttons
+  app.querySelectorAll(".roadmap-item-edit-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const movieId = btn.dataset.editMovie;
+      openRoadmapMovieEditorModal(movieId, roadmap);
+    });
   });
 
   app.querySelectorAll('input[type=checkbox][data-id]').forEach(cb => {
@@ -1442,20 +1714,77 @@ function route() {
   app.innerHTML = `<section class="section"><h1>Page not found</h1><a href="#/home" class="link">← Home</a></section>`;
 }
 
+function isDesktopScreen() {
+  return window.innerWidth > 900;
+}
+
 function closeSidebar() {
-  document.getElementById("sidebar")?.classList.remove("open");
-  document.getElementById("sidebar-backdrop")?.classList.remove("open");
+  if (isDesktopScreen()) {
+    document.querySelector(".app-shell")?.classList.add("sidebar-collapsed");
+    localStorage.setItem("mi_sidebar_collapsed", "1");
+  } else {
+    document.getElementById("sidebar")?.classList.remove("open");
+    document.getElementById("sidebar-backdrop")?.classList.remove("open");
+  }
 }
+
 function openSidebar() {
-  document.getElementById("sidebar")?.classList.add("open");
-  document.getElementById("sidebar-backdrop")?.classList.add("open");
+  if (isDesktopScreen()) {
+    document.querySelector(".app-shell")?.classList.remove("sidebar-collapsed");
+    localStorage.setItem("mi_sidebar_collapsed", "0");
+  } else {
+    document.getElementById("sidebar")?.classList.add("open");
+    document.getElementById("sidebar-backdrop")?.classList.add("open");
+  }
 }
+
+function toggleSidebar() {
+  if (isDesktopScreen()) {
+    const shell = document.querySelector(".app-shell");
+    const isCollapsed = shell?.classList.toggle("sidebar-collapsed");
+    localStorage.setItem("mi_sidebar_collapsed", isCollapsed ? "1" : "0");
+  } else {
+    const sidebar = document.getElementById("sidebar");
+    if (sidebar?.classList.contains("open")) {
+      closeSidebar();
+    } else {
+      openSidebar();
+    }
+  }
+}
+
 function initSidebar() {
-  document.getElementById("menu-toggle")?.addEventListener("click", openSidebar);
-  document.getElementById("sidebar-close")?.addEventListener("click", closeSidebar);
-  document.getElementById("sidebar-backdrop")?.addEventListener("click", closeSidebar);
+  const shell = document.querySelector(".app-shell");
+  if (isDesktopScreen() && localStorage.getItem("mi_sidebar_collapsed") === "1") {
+    shell?.classList.add("sidebar-collapsed");
+  }
+
+  document.getElementById("menu-toggle")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    toggleSidebar();
+  });
+  document.getElementById("sidebar-close")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    closeSidebar();
+  });
+  document.getElementById("sidebar-backdrop")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    closeSidebar();
+  });
+
+  // Keyboard shortcut Esc collapses/closes sidebar
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeSidebar();
+    }
+  });
+
   document.querySelectorAll(".sidebar-nav .navlink").forEach(a => {
-    a.addEventListener("click", () => closeSidebar());
+    a.addEventListener("click", () => {
+      if (!isDesktopScreen()) {
+        closeSidebar();
+      }
+    });
   });
 }
 

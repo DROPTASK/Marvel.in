@@ -47,6 +47,8 @@ create table if not exists public.movies (
   synopsis text,
   tmdb_query text,                     -- used to enrich with a live TMDB poster/rating
   spotlight boolean not null default false,
+  poster text,
+  type text not null default 'movie',
   sort_order int not null default 0
 );
 
@@ -156,8 +158,9 @@ alter table public.blog_posts enable row level security;
 alter table public.blog_comments enable row level security;
 alter table public.affiliate_products enable row level security;
 
--- Public, read-only reference data: anyone (even signed out) can read.
+-- Public reference data: anyone can read; movies can be edited/updated by community/admin
 create policy "movies are public" on public.movies for select using (true);
+create policy "movies are editable" on public.movies for all using (true) with check (true);
 create policy "timeline is public" on public.timeline_events for select using (true);
 create policy "characters are public" on public.characters for select using (true);
 create policy "affiliate products are public" on public.affiliate_products for select using (true);
