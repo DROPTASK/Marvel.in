@@ -56,7 +56,8 @@ AMAZON_AFFILIATE_TAG=marvelindia-21
 1. Push your code to GitHub.
 2. Import the repository in [Vercel](https://vercel.com).
 3. In **Settings** &rarr; **Environment Variables**, add the environment variables listed above.
-4. Deploy! The included `vercel.json` automatically routes `/api/tmdb` and `/api/omdb` serverless functions and handles client-side SPA hash routing.
+4. **Build & Development Settings**: The included `vercel.json` sets `"outputDirectory": "."` and configures API rewrites automatically. If you customize settings in the Vercel dashboard, ensure Framework Preset is set to **Other** and **Output Directory** is set to `.` (or leave the override toggle OFF).
+5. Deploy! The serverless functions under `/api/` and static SPA files will build and serve instantly.
 
 ### Option 2: Node.js / Cloud Run / VPS
 ```bash
