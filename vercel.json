@@ -1,6 +1,7 @@
 {
   "outputDirectory": ".",
   "rewrites": [
+    { "source": "/api/config.js", "destination": "/api/config.js" },
     { "source": "/js/config.js", "destination": "/api/config.js" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]

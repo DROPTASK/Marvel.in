@@ -384,3 +384,97 @@ window.MI_TRAILERS = [
   }
 ];
 
+// ---- Curated Marvel India Merchandise (Amazon Affiliate) -----------------
+window.MI_AFFILIATE_PRODUCTS = [
+  {
+    id: 1,
+    title: "Marvel Avengers Legends Series Infinity Gauntlet Prop Replica",
+    category: "Collectibles",
+    tag: "Fan Favorite",
+    price_label: "₹8,499",
+    price_num: 8499,
+    mrp: "₹11,999",
+    discount_percent: "29% off",
+    rating: 4.8,
+    reviews_count: "2,480",
+    image_url: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=600&auto=format&fit=crop&q=80",
+    amazon_url: "https://www.amazon.in/s?k=marvel+legends+infinity+gauntlet",
+    blurb: "Articulated electronic fist with pulsating LED Infinity Stones, movie-inspired sound FX, and finger lock display mode."
+  },
+  {
+    id: 2,
+    title: "Hasbro Marvel Legends 6-Inch Deadpool & Wolverine Collectible Figure",
+    category: "Action Figures",
+    tag: "Bestseller",
+    price_label: "₹2,799",
+    price_num: 2799,
+    mrp: "₹3,499",
+    discount_percent: "20% off",
+    rating: 4.9,
+    reviews_count: "1,150",
+    image_url: "https://images.unsplash.com/photo-1563089145-599997674d42?w=600&auto=format&fit=crop&q=80",
+    amazon_url: "https://www.amazon.in/s?k=marvel+legends+deadpool+wolverine",
+    blurb: "Premium comic-accurate articulation with interchangeable hands, katana swords, and signature weapons from the hit film."
+  },
+  {
+    id: 3,
+    title: "Captain America 24-Inch 75th Anniversary Metal Shield Replica",
+    category: "Cosplay & Replicas",
+    tag: "Collector Edition",
+    price_label: "₹6,999",
+    price_num: 6999,
+    mrp: "₹9,999",
+    discount_percent: "30% off",
+    rating: 4.7,
+    reviews_count: "890",
+    image_url: "https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?w=600&auto=format&fit=crop&q=80",
+    amazon_url: "https://www.amazon.in/s?k=captain+america+shield+replica+metal",
+    blurb: "Full-scale 1:1 replica featuring premium dual adjustable leather arm straps and high-gloss vibranium finish."
+  },
+  {
+    id: 4,
+    title: "Secret Wars (2015) Marvel Omnibus Hardcover by Jonathan Hickman",
+    category: "Comics & Graphic Novels",
+    tag: "Essential Reading",
+    price_label: "₹3,250",
+    price_num: 3250,
+    mrp: "₹4,500",
+    discount_percent: "28% off",
+    rating: 4.9,
+    reviews_count: "3,420",
+    image_url: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&auto=format&fit=crop&q=80",
+    amazon_url: "https://www.amazon.in/s?k=secret+wars+omnibus+hickman",
+    blurb: "The definitive multiverse incursion epic directly inspiring Avengers: Secret Wars & Doomsday. Oversized full-color omnibus."
+  },
+  {
+    id: 5,
+    title: "Loki TVA Golden TempPad Time Travel Clock Desk Prop",
+    category: "Collectibles",
+    tag: "Trending",
+    price_label: "₹1,899",
+    price_num: 1899,
+    mrp: "₹2,499",
+    discount_percent: "24% off",
+    rating: 4.6,
+    reviews_count: "640",
+    image_url: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&auto=format&fit=crop&q=80",
+    amazon_url: "https://www.amazon.in/s?k=loki+tva+temppad+prop",
+    blurb: "Interactive desktop LED chronometer modeled after Miss Minutes and the Time Variance Authority time-door devices."
+  },
+  {
+    id: 6,
+    title: "Marvel Studios The Infinity Saga 4K Ultra HD Box Set (Phases 1-3)",
+    category: "Movies & Blu-Ray",
+    tag: "Ultimate Box Set",
+    price_label: "₹14,999",
+    price_num: 14999,
+    mrp: "₹19,999",
+    discount_percent: "25% off",
+    rating: 4.9,
+    reviews_count: "1,870",
+    image_url: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&auto=format&fit=crop&q=80",
+    amazon_url: "https://www.amazon.in/s?k=marvel+infinity+saga+4k+box+set",
+    blurb: "All 23 groundbreaking Infinity Saga films remastered with Dolby Atmos, deleted scenes, gag reels, and exclusive lithographs."
+  }
+];
+

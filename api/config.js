@@ -19,11 +19,16 @@ export default async function handler(req, res) {
     LEGAL_EMAIL: process.env.LEGAL_EMAIL || "legal@marvelindia.in"
   };
 
-  const isScriptRequest = req.url && (req.url.endsWith(".js") || req.url.includes(".js?"));
+  const url = req.url || "";
+  const accept = req.headers && req.headers["accept"] ? req.headers["accept"] : "";
+  const fetchDest = req.headers && req.headers["sec-fetch-dest"] ? req.headers["sec-fetch-dest"] : "";
+  const isScriptRequest = url.endsWith(".js") || url.includes(".js?") || url.includes("format=js") || fetchDest === "script" || (!accept.includes("application/json") && accept.includes("*/*") && !url.endsWith("/config"));
+
   if (isScriptRequest) {
     res.setHeader("Content-Type", "application/javascript; charset=utf-8");
     return res.status(200).send(`window.MARVEL_INDIA_CONFIG = Object.assign(window.MARVEL_INDIA_CONFIG || {}, ${JSON.stringify(config, null, 2)});`);
   }
 
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.status(200).json(config);
 }

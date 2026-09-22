@@ -6,11 +6,14 @@
  * wrappers only enrich it with live posters, ratings and streaming links.
  */
 const MI = window.MI_API = (() => {
-  const cfg = window.MARVEL_INDIA_CONFIG;
+  const getCfg = () => window.MARVEL_INDIA_CONFIG || {};
 
-  async function safeJson(url) {
+  async function safeJson(url, timeoutMs = 5000) {
     try {
-      const res = await fetch(url);
+      const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+      const res = await fetch(url, controller ? { signal: controller.signal } : {});
+      if (timer) clearTimeout(timer);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
@@ -21,11 +24,12 @@ const MI = window.MI_API = (() => {
 
   // ---------------- TMDB ----------------------------------------------
   const tmdb = {
-    ready: () => !!cfg.TMDB_API_KEY,
+    ready: () => !!getCfg().TMDB_API_KEY,
 
     // Movies + credits produced by Marvel Studios, newest first
     async discoverMarvel(page = 1) {
       if (!this.ready()) return null;
+      const cfg = getCfg();
       const url = `https://api.themoviedb.org/3/discover/movie?api_key=${cfg.TMDB_API_KEY}` +
         `&with_companies=${cfg.TMDB_MARVEL_COMPANY_ID}&sort_by=primary_release_date.desc&page=${page}`;
       return safeJson(url);
@@ -33,6 +37,7 @@ const MI = window.MI_API = (() => {
 
     async search(query) {
       if (!this.ready() || !query) return null;
+      const cfg = getCfg();
       const url = `https://api.themoviedb.org/3/search/multi?api_key=${cfg.TMDB_API_KEY}` +
         `&query=${encodeURIComponent(query)}&include_adult=false`;
       return safeJson(url);
@@ -40,6 +45,7 @@ const MI = window.MI_API = (() => {
 
     async movieDetails(id) {
       if (!this.ready()) return null;
+      const cfg = getCfg();
       const url = `https://api.themoviedb.org/3/movie/${id}?api_key=${cfg.TMDB_API_KEY}` +
         `&append_to_response=credits,videos,external_ids,watch/providers`;
       return safeJson(url);
@@ -47,6 +53,7 @@ const MI = window.MI_API = (() => {
 
     async tvDetails(id) {
       if (!this.ready()) return null;
+      const cfg = getCfg();
       const url = `https://api.themoviedb.org/3/tv/${id}?api_key=${cfg.TMDB_API_KEY}` +
         `&append_to_response=credits,videos,external_ids,watch/providers`;
       return safeJson(url);
@@ -118,6 +125,7 @@ const MI = window.MI_API = (() => {
         const yrParam = isTv
           ? (targetYear ? `&first_air_date_year=${targetYear}` : "")
           : (targetYear ? `&primary_release_year=${targetYear}` : "");
+        const cfg = getCfg();
         const specificUrl = `https://api.themoviedb.org/3/search/${ep}?api_key=${cfg.TMDB_API_KEY}` +
           `&query=${encodeURIComponent(cleanQuery)}${yrParam}&include_adult=false`;
         const specData = await safeJson(specificUrl);
@@ -178,12 +186,14 @@ const MI = window.MI_API = (() => {
 
     posterUrl(path) {
       if (!path) return null;
+      const cfg = getCfg();
       const base = (cfg.TMDB_IMAGE_BASE || "https://image.tmdb.org/t/p/w500").replace("http://", "https://");
       const p = path.startsWith("http") ? path.replace("http://", "https://") : base + path;
       return p;
     },
     backdropUrl(path) {
       if (!path) return null;
+      const cfg = getCfg();
       const base = (cfg.TMDB_BACKDROP_BASE || "https://image.tmdb.org/t/p/original").replace("http://", "https://");
       return path.startsWith("http") ? path.replace("http://", "https://") : base + path;
     }
@@ -191,15 +201,17 @@ const MI = window.MI_API = (() => {
 
   // ---------------- OMDb ------------------------------------------------
   const omdb = {
-    ready: () => !!cfg.OMDB_API_KEY,
+    ready: () => !!getCfg().OMDB_API_KEY,
     // Accepts an IMDb id (preferred, comes from TMDB external_ids) or a title
     async byImdbId(imdbId) {
       if (!this.ready() || !imdbId) return null;
+      const cfg = getCfg();
       const url = `https://www.omdbapi.com/?apikey=${cfg.OMDB_API_KEY}&i=${imdbId}&tomatoes=true`;
       return safeJson(url);
     },
     async byTitle(title, year) {
       if (!this.ready() || !title) return null;
+      const cfg = getCfg();
       const url = `https://www.omdbapi.com/?apikey=${cfg.OMDB_API_KEY}&t=${encodeURIComponent(title)}` +
         (year ? `&y=${year}` : "");
       return safeJson(url);
@@ -222,15 +234,17 @@ const MI = window.MI_API = (() => {
 
   // ---------------- Watchmode ("where to watch") -------------------------
   const watchmode = {
-    ready: () => !!cfg.WATCHMODE_API_KEY,
+    ready: () => !!getCfg().WATCHMODE_API_KEY,
     async searchByImdb(imdbId) {
       if (!this.ready() || !imdbId) return null;
+      const cfg = getCfg();
       const url = `https://api.watchmode.com/v1/search/?apiKey=${cfg.WATCHMODE_API_KEY}` +
         `&search_field=imdb_id&search_value=${imdbId}`;
       return safeJson(url);
     },
     async sources(titleId) {
       if (!this.ready() || !titleId) return null;
+      const cfg = getCfg();
       const url = `https://api.watchmode.com/v1/title/${titleId}/sources/?apiKey=${cfg.WATCHMODE_API_KEY}` +
         `&regions=IN,US`;
       return safeJson(url);

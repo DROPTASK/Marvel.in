@@ -188,8 +188,23 @@
 
 <div id="modal-root"></div>
 
+<script>
+  window.MARVEL_INDIA_CONFIG = Object.assign({
+    SUPABASE_URL: "",
+    SUPABASE_ANON_KEY: "",
+    TMDB_API_KEY: "",
+    OMDB_API_KEY: "",
+    WATCHMODE_API_KEY: "",
+    TMDB_MARVEL_COMPANY_ID: 420,
+    TMDB_IMAGE_BASE: "https://image.tmdb.org/t/p/w500",
+    TMDB_BACKDROP_BASE: "https://image.tmdb.org/t/p/original",
+    AMAZON_AFFILIATE_TAG: "marvelindia09-21",
+    CONTACT_EMAIL: "contact@marvelindia.in",
+    LEGAL_EMAIL: "legal@marvelindia.in"
+  }, window.MARVEL_INDIA_CONFIG || {});
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="/api/config.js"></script>
+<script src="/api/config.js" onerror="console.warn('[MarvelIndia] /api/config.js script load bypassed; using runtime fetch fallback.')"></script>
 <script src="js/data.js"></script>
 <script src="js/supabaseClient.js"></script>
 <script src="js/db.js"></script>

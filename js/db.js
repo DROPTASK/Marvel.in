@@ -9,10 +9,24 @@
  * empty state with a pointer back to the README instead.
  */
 const MI_DB = (() => {
-  function sb() { return MI_SUPABASE.client; }
-  function guard(fallback) {
-    if (!MI_SUPABASE.ready) { console.warn("[MarvelIndia] Supabase not configured — see README."); return fallback; }
-    return null;
+  function sb() { return (window.MI_SUPABASE && window.MI_SUPABASE.client) || null; }
+  function isReady() {
+    return !!(window.MI_SUPABASE && window.MI_SUPABASE.ready && sb());
+  }
+
+  async function withTimeout(promise, timeoutMs = 4000) {
+    let timer;
+    const timeoutPromise = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error("Database query timed out")), timeoutMs);
+    });
+    try {
+      const res = await Promise.race([promise, timeoutPromise]);
+      clearTimeout(timer);
+      return res;
+    } catch (err) {
+      clearTimeout(timer);
+      throw err;
+    }
   }
 
   function localRoadmap() {
@@ -98,14 +112,14 @@ const MI_DB = (() => {
     const local = localRoadmap();
     let dbData = [];
 
-    if (MI_SUPABASE.ready) {
+    if (isReady()) {
       try {
-        const { data, error } = await sb().from("movies").select("*").order("sort_order");
+        const { data, error } = await withTimeout(sb().from("movies").select("*").order("sort_order"), 4000);
         if (!error && data && data.length) {
           dbData = data;
         }
       } catch (err) {
-        console.warn("[MarvelIndia] Could not fetch movies from Supabase:", err);
+        console.warn("[MarvelIndia] Could not fetch movies from Supabase (using local):", err);
       }
     }
 
@@ -232,10 +246,9 @@ const MI_DB = (() => {
     );
     if (found) return found;
 
-    const bail = guard(null);
-    if (bail !== null) return null;
+    if (!isReady()) return null;
     try {
-      const { data, error } = await sb().from("movies").select("*").eq("id", id).maybeSingle();
+      const { data, error } = await withTimeout(sb().from("movies").select("*").eq("id", id).maybeSingle(), 4000);
       if (error || !data) return null;
       const local = localRoadmap().find(m => normTitle(m.title) === normTitle(data.title));
       return {
@@ -261,10 +274,9 @@ const MI_DB = (() => {
   // ------------------------------------------------------------- timeline
   async function getTimeline() {
     const local = localTimeline();
-    const bail = guard(null);
-    if (bail !== null) return local;
+    if (!isReady()) return local;
     try {
-      const { data, error } = await sb().from("timeline_events").select("*").order("sort_order");
+      const { data, error } = await withTimeout(sb().from("timeline_events").select("*").order("sort_order"), 4000);
       if (error || !data || !data.length) return local;
 
       // Merge and deduplicate by normalized movie title so no events appear twice
@@ -278,10 +290,9 @@ const MI_DB = (() => {
 
   // ------------------------------------------------------------- characters
   async function getCharacters() {
-    const bail = guard(null);
-    if (bail !== null) return localCharacters();
+    if (!isReady()) return localCharacters();
     try {
-      const { data, error } = await sb().from("characters").select("*").order("sort_order");
+      const { data, error } = await withTimeout(sb().from("characters").select("*").order("sort_order"), 4000);
       if (error || !data || !data.length) return localCharacters();
       return data;
     } catch {
@@ -289,10 +300,9 @@ const MI_DB = (() => {
     }
   }
   async function getCharacterById(id) {
-    const bail = guard(null);
-    if (bail !== null) return localCharacters().find(c => String(c.id) === String(id)) || null;
+    if (!isReady()) return localCharacters().find(c => String(c.id) === String(id)) || null;
     try {
-      const { data, error } = await sb().from("characters").select("*").eq("id", id).single();
+      const { data, error } = await withTimeout(sb().from("characters").select("*").eq("id", id).single(), 4000);
       if (error || !data) return localCharacters().find(c => String(c.id) === String(id)) || null;
       return data;
     } catch {
@@ -302,18 +312,23 @@ const MI_DB = (() => {
 
   // ------------------------------------------------------------- wishlist
   async function getWishlist(userId) {
-    const bail = guard([]); if (bail) return bail;
-    if (!userId) return [];
-    const { data, error } = await sb().from("wishlist").select("*").eq("user_id", userId).order("created_at", { ascending: false });
-    if (error) { console.error(error); return []; }
-    return data;
+    if (!userId || !isReady()) return [];
+    try {
+      const { data, error } = await withTimeout(sb().from("wishlist").select("*").eq("user_id", userId).order("created_at", { ascending: false }), 4000);
+      if (error) { console.error(error); return []; }
+      return data || [];
+    } catch {
+      return [];
+    }
   }
   async function isWishlisted(userId, itemId, itemType = "movie") {
-    if (!userId) return false;
-    const bail = guard(false); if (bail !== null && bail !== false) return bail;
-    if (!MI_SUPABASE.ready) return false;
-    const { data } = await sb().from("wishlist").select("id").eq("user_id", userId).eq("item_id", itemId).eq("item_type", itemType).maybeSingle();
-    return !!data;
+    if (!userId || !isReady()) return false;
+    try {
+      const { data } = await withTimeout(sb().from("wishlist").select("id").eq("user_id", userId).eq("item_id", itemId).eq("item_type", itemType).maybeSingle(), 4000);
+      return !!data;
+    } catch {
+      return false;
+    }
   }
   async function toggleWishlist(userId, item) {
     if (!userId) return { ok: false, error: "Sign up or log in to build a wishlist." };
@@ -334,17 +349,16 @@ const MI_DB = (() => {
   // PostgREST foreign key relationship in the database schema cache
   async function enrichWithProfiles(items, userIdField = "user_id") {
     if (!items || !items.length) return items || [];
-    const bail = guard(null);
-    if (bail !== null) return items;
+    if (!isReady()) return items;
 
     const userIds = [...new Set(items.map(item => item[userIdField]).filter(Boolean))];
     if (!userIds.length) return items;
 
     try {
-      const { data: profs, error } = await sb()
-        .from("profiles")
-        .select("id, username, avatar_url")
-        .in("id", userIds);
+      const { data: profs, error } = await withTimeout(
+        sb().from("profiles").select("id, username, avatar_url").in("id", userIds),
+        4000
+      );
 
       if (error || !profs) {
         return items.map(it => ({
@@ -368,14 +382,12 @@ const MI_DB = (() => {
 
   // ------------------------------------------------------------- comments
   async function getComments(itemType, itemId) {
-    const bail = guard([]); if (bail) return bail;
+    if (!isReady()) return [];
     try {
-      const { data, error } = await sb()
-        .from("comments")
-        .select("id, body, created_at, user_id")
-        .eq("item_type", itemType)
-        .eq("item_id", itemId)
-        .order("created_at", { ascending: false });
+      const { data, error } = await withTimeout(
+        sb().from("comments").select("id, body, created_at, user_id").eq("item_type", itemType).eq("item_id", itemId).order("created_at", { ascending: false }),
+        4000
+      );
       if (error || !data) {
         if (error) console.error("getComments error:", error.message || error);
         return [];
@@ -411,9 +423,12 @@ const MI_DB = (() => {
 
   async function getWatchedIds(userId) {
     const local = getLocalWatched();
-    if (!userId || !MI_SUPABASE.ready) return local;
+    if (!userId || !isReady()) return local;
     try {
-      const { data, error } = await sb().from("watch_progress").select("movie_id").eq("user_id", userId).eq("watched", true);
+      const { data, error } = await withTimeout(
+        sb().from("watch_progress").select("movie_id").eq("user_id", userId).eq("watched", true),
+        4000
+      );
       if (error || !data) return local;
       const dbIds = data.map(r => r.movie_id);
       const merged = Array.from(new Set([...local, ...dbIds]));
@@ -484,14 +499,12 @@ const MI_DB = (() => {
   }
 
   async function getBlogPosts() {
-    const bail = guard(null);
-    if (bail !== null) return localBlogPosts();
+    if (!isReady()) return localBlogPosts();
     try {
-      const { data, error } = await sb()
-        .from("blog_posts")
-        .select("id, title, slug, cover_image_url, body, tags, created_at, author_id")
-        .eq("published", true)
-        .order("created_at", { ascending: false });
+      const { data, error } = await withTimeout(
+        sb().from("blog_posts").select("id, title, slug, cover_image_url, body, tags, created_at, author_id").eq("published", true).order("created_at", { ascending: false }),
+        4000
+      );
       if (error || !data || !data.length) return localBlogPosts();
       return await enrichWithProfiles(data, "author_id");
     } catch {
@@ -500,14 +513,12 @@ const MI_DB = (() => {
   }
 
   async function getBlogPost(slug) {
-    const bail = guard(null);
-    if (bail !== null) return localBlogPosts().find(p => p.slug === slug) || null;
+    if (!isReady()) return localBlogPosts().find(p => p.slug === slug) || null;
     try {
-      const { data, error } = await sb()
-        .from("blog_posts")
-        .select("id, title, slug, cover_image_url, body, tags, created_at, author_id")
-        .eq("slug", slug)
-        .maybeSingle();
+      const { data, error } = await withTimeout(
+        sb().from("blog_posts").select("id, title, slug, cover_image_url, body, tags, created_at, author_id").eq("slug", slug).maybeSingle(),
+        4000
+      );
       if (error || !data) return localBlogPosts().find(p => p.slug === slug) || null;
       const [enriched] = await enrichWithProfiles([data], "author_id");
       return enriched || data;
@@ -537,13 +548,12 @@ const MI_DB = (() => {
     return { ok: true, slug };
   }
   async function getBlogComments(postId) {
-    const bail = guard([]); if (bail) return bail;
+    if (!isReady()) return [];
     try {
-      const { data, error } = await sb()
-        .from("blog_comments")
-        .select("id, body, created_at, user_id")
-        .eq("post_id", postId)
-        .order("created_at", { ascending: true });
+      const { data, error } = await withTimeout(
+        sb().from("blog_comments").select("id, body, created_at, user_id").eq("post_id", postId).order("created_at", { ascending: true }),
+        4000
+      );
       if (error || !data) {
         if (error) console.error("getBlogComments error:", error.message || error);
         return [];
@@ -761,10 +771,12 @@ const MI_DB = (() => {
   }
 
   async function getAffiliateProducts() {
-    const bail = guard(null);
-    if (bail !== null) return localAffiliateProducts();
+    if (!isReady()) return localAffiliateProducts();
     try {
-      const { data, error } = await sb().from("affiliate_products").select("*").order("sort_order");
+      const { data, error } = await withTimeout(
+        sb().from("affiliate_products").select("*").order("sort_order"),
+        4000
+      );
       if (error || !data || !data.length) return localAffiliateProducts();
       return data;
     } catch {
@@ -791,11 +803,17 @@ const MI_DB = (() => {
 
   // ------------------------------------------------------------- profile
   async function getProfile(userId) {
-    const bail = guard(null); if (bail) return bail;
-    if (!userId) return null;
-    const { data, error } = await sb().from("profiles").select("*").eq("id", userId).single();
-    if (error) { console.error(error); return null; }
-    return data;
+    if (!userId || !isReady()) return null;
+    try {
+      const { data, error } = await withTimeout(
+        sb().from("profiles").select("*").eq("id", userId).single(),
+        4000
+      );
+      if (error) { console.error(error); return null; }
+      return data;
+    } catch {
+      return null;
+    }
   }
   async function setNotificationsEnabled(userId, enabled) {
     if (!userId) return { ok: false };
@@ -814,6 +832,7 @@ const MI_DB = (() => {
     getBlogPosts, getBlogPost, createBlogPost, getBlogComments, addBlogComment,
     getAffiliateProducts,
     uploadAvatar, uploadBlogCover,
-    getProfile, setNotificationsEnabled
+    getProfile, setNotificationsEnabled,
+    localRoadmap, localTimeline, localBlogPosts, localAffiliateProducts
   };
 })();

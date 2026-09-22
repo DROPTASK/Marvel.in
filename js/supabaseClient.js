@@ -18,14 +18,18 @@ const MI_SUPABASE = (() => {
           if (data) {
             window.MARVEL_INDIA_CONFIG = Object.assign(window.MARVEL_INDIA_CONFIG || {}, data);
             if (window.supabase && data.SUPABASE_URL && data.SUPABASE_ANON_KEY) {
-              cachedClient = window.supabase.createClient(data.SUPABASE_URL, data.SUPABASE_ANON_KEY);
+              try {
+                cachedClient = window.supabase.createClient(data.SUPABASE_URL, data.SUPABASE_ANON_KEY);
+              } catch (e) {
+                console.warn("[MarvelIndia] Failed creating Supabase client:", e);
+              }
             }
           }
           return window.MARVEL_INDIA_CONFIG;
         })
         .catch(err => {
           console.warn("[MarvelIndia] Could not fetch /api/config:", err);
-          return null;
+          return window.MARVEL_INDIA_CONFIG || null;
         });
     }
     return configFetchPromise;
@@ -60,9 +64,12 @@ const MI_SUPABASE = (() => {
     get client() {
       return resolveClient();
     },
-    async ensureReady() {
+    async ensureReady(timeoutMs = 2500) {
       if (resolveClient()) return cachedClient;
-      await fetchEnvConfig();
+      try {
+        const timeout = new Promise(resolve => setTimeout(resolve, timeoutMs));
+        await Promise.race([fetchEnvConfig(), timeout]);
+      } catch (e) {}
       return resolveClient();
     }
   };

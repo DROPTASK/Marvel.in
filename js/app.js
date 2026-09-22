@@ -16,12 +16,19 @@ function currentUserId() { return MI_AUTH.currentUserId(); }
 function currentUsername() { return MI_AUTH.currentUsername(); }
 
 async function enrichWithTmdb(query, expectedType = null, year = null) {
-  if (!query || !MI_API.tmdb.ready()) return null;
-  const cacheKey = `${query}|${expectedType || ""}|${year || ""}`;
-  if (tmdbCache.has(cacheKey)) return tmdbCache.get(cacheKey);
-  const result = await MI_API.tmdb.findMedia(query, expectedType, year);
-  tmdbCache.set(cacheKey, result);
-  return result;
+  try {
+    if (!query || !window.MI_API || !window.MI_API.tmdb || !window.MI_API.tmdb.ready || !window.MI_API.tmdb.ready()) return null;
+    const cacheKey = `${query}|${expectedType || ""}|${year || ""}`;
+    if (tmdbCache.has(cacheKey)) return tmdbCache.get(cacheKey);
+    const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 3000));
+    const fetchPromise = window.MI_API.tmdb.findMedia(query, expectedType, year);
+    const result = await Promise.race([fetchPromise, timeoutPromise]);
+    if (result) tmdbCache.set(cacheKey, result);
+    return result || null;
+  } catch (err) {
+    console.warn("[MarvelIndia] enrichWithTmdb fallback:", query, err);
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------- header / nav
@@ -1481,7 +1488,15 @@ function renderComments(comments) {
 // ---------------------------------------------------------------- TIMELINE
 async function renderTimeline() {
   app.innerHTML = `<div class="loading">Loading the timeline…</div>`;
-  const items = await MI_DB.getTimeline();
+  let items = [];
+  try {
+    items = await MI_DB.getTimeline();
+  } catch (err) {
+    console.warn("[MarvelIndia] Timeline fetch failed, using local:", err);
+  }
+  if (!items || !items.length) {
+    items = (MI_DB.localTimeline && MI_DB.localTimeline()) || [];
+  }
 
   function getTimelineRealm(t) {
     const title = (t.movie_title || "").toLowerCase();
@@ -1545,8 +1560,25 @@ async function renderTimeline() {
 async function renderRoadmap() {
   app.innerHTML = `<div class="loading">Building your roadmap…</div>`;
   const userId = currentUserId();
-  const [roadmap, watchedIds, doom] = await Promise.all([MI_DB.getRoadmap(), MI_DB.getWatchedIds(userId), MI_DB.getSpotlightMovie()]);
-  const watchedSet = new Set(watchedIds);
+  let roadmap = [];
+  let watchedIds = [];
+  let doom = null;
+  try {
+    const results = await Promise.all([
+      MI_DB.getRoadmap().catch(() => (MI_DB.localRoadmap && MI_DB.localRoadmap()) || []),
+      MI_DB.getWatchedIds(userId).catch(() => []),
+      MI_DB.getSpotlightMovie().catch(() => null)
+    ]);
+    roadmap = results[0];
+    watchedIds = results[1];
+    doom = results[2];
+  } catch (err) {
+    console.warn("[MarvelIndia] Roadmap load error, falling back to local:", err);
+  }
+  if (!roadmap || !roadmap.length) {
+    roadmap = (MI_DB.localRoadmap && MI_DB.localRoadmap()) || [];
+  }
+  const watchedSet = new Set(watchedIds || []);
 
   const byPhase = {};
   const phaseMeta = {
@@ -1670,7 +1702,15 @@ async function renderWishlist() {
 // ---------------------------------------------------------------- BLOG
 async function renderBlogList() {
   app.innerHTML = `<div class="loading">Loading posts…</div>`;
-  const posts = await MI_DB.getBlogPosts();
+  let posts = [];
+  try {
+    posts = await MI_DB.getBlogPosts();
+  } catch (err) {
+    console.warn("[MarvelIndia] Blog list load error, using local:", err);
+  }
+  if (!posts || !posts.length) {
+    posts = (MI_DB.localBlogPosts && MI_DB.localBlogPosts()) || [];
+  }
   const userId = currentUserId();
   app.innerHTML = `
     <section class="section">
@@ -1681,7 +1721,10 @@ async function renderBlogList() {
       ${posts.length ? `<div class="blog-grid">${posts.map(blogCard).join("")}</div>` : `<p class="muted">No posts yet — be the first to write one.</p>`}
     </section>
   `;
-  if (!userId) document.getElementById("blog-login-btn").onclick = openAuthModal;
+  if (!userId) {
+    const btn = document.getElementById("blog-login-btn");
+    if (btn) btn.onclick = openAuthModal;
+  }
 }
 function blogCard(p) {
   return `
@@ -1697,11 +1740,29 @@ function blogCard(p) {
 }
 async function renderBlogPost(slug) {
   app.innerHTML = `<div class="loading">Loading post…</div>`;
-  const post = await MI_DB.getBlogPost(slug);
-  if (!post) { app.innerHTML = `<section class="section"><h1>Post not found</h1></section>`; return; }
+  let post = null;
+  try {
+    post = await MI_DB.getBlogPost(slug);
+  } catch (err) {
+    console.warn("[MarvelIndia] BlogPost load error, using local:", err);
+  }
+  if (!post && MI_DB.localBlogPosts) {
+    post = MI_DB.localBlogPosts().find(p => p.slug === slug) || null;
+  }
+  if (!post) { app.innerHTML = `<section class="section"><h1>Post not found</h1><a href="#/blog" class="link">← Back to Blog</a></section>`; return; }
   const userId = currentUserId();
-  const comments = await MI_DB.getBlogComments(post.id);
-  const suggestionsHtml = await renderDetailSuggestions(null, slug);
+  let comments = [];
+  try {
+    comments = await MI_DB.getBlogComments(post.id);
+  } catch (err) {
+    comments = [];
+  }
+  let suggestionsHtml = "";
+  try {
+    suggestionsHtml = await renderDetailSuggestions(null, slug);
+  } catch (err) {
+    suggestionsHtml = "";
+  }
   app.innerHTML = `
     <section class="section">
       ${post.cover_image_url ? `<div class="blog-detail-cover" style="background-image:url('${post.cover_image_url}')"></div>` : ""}
@@ -2100,8 +2161,16 @@ function renderContact() {
 // ---------------------------------------------------------------- SHOP (Amazon affiliate & Merchandise)
 async function renderShop() {
   app.innerHTML = `<div class="loading">Loading curated Marvel merchandise…</div>`;
-  const rawProducts = await MI_DB.getAffiliateProducts();
-  const tag = window.MARVEL_INDIA_CONFIG.AMAZON_AFFILIATE_TAG;
+  let rawProducts = [];
+  try {
+    rawProducts = await MI_DB.getAffiliateProducts();
+  } catch (err) {
+    console.warn("[MarvelIndia] Shop products load error, using local:", err);
+  }
+  if (!rawProducts || !rawProducts.length) {
+    rawProducts = (MI_DB.localAffiliateProducts && MI_DB.localAffiliateProducts()) || [];
+  }
+  const tag = (window.MARVEL_INDIA_CONFIG && window.MARVEL_INDIA_CONFIG.AMAZON_AFFILIATE_TAG) || "";
 
   let activeCategory = "all";
   let activeSearch = "";
@@ -2326,6 +2395,24 @@ function parseHash() {
   const params = new URLSearchParams(qs || "");
   return { path, params };
 }
+function safeRender(renderPromise) {
+  return Promise.resolve(renderPromise).catch(err => {
+    console.error("[MarvelIndia] Route render failed:", err);
+    const appEl = document.getElementById("app");
+    if (appEl) {
+      appEl.innerHTML = `
+        <section class="section" style="text-align: center; padding: 48px 16px;">
+          <h2>Unable to load content right now</h2>
+          <p class="muted" style="margin: 12px 0 24px;">A network or rendering timeout occurred. You can retry or return to the main hub.</p>
+          <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+            <button type="button" class="pill primary" onclick="route()">Retry Tab</button>
+            <a href="#/home" class="pill">Back to Home</a>
+          </div>
+        </section>`;
+    }
+  });
+}
+
 function route() {
   recordNav(location.hash || "#/home");
   window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -2338,29 +2425,29 @@ function route() {
     a.classList.toggle("active", routeName === top || (top === "movie" && routeName === "search"));
   });
 
-  if (path === "/home" || path === "/") return renderHome();
-  if (path === "/search") return renderSearch(params.get("q"));
-  if (path.startsWith("/movie/")) return renderMovie(path.split("/")[2]);
-  if (path === "/trailers") return renderTrailers(params.get("cat"));
-  if (path === "/timeline") return renderTimeline();
-  if (path === "/roadmap") return renderRoadmap();
+  if (path === "/home" || path === "/") return safeRender(renderHome());
+  if (path === "/search") return safeRender(renderSearch(params.get("q")));
+  if (path.startsWith("/movie/")) return safeRender(renderMovie(path.split("/")[2]));
+  if (path === "/trailers") return safeRender(renderTrailers(params.get("cat")));
+  if (path === "/timeline") return safeRender(renderTimeline());
+  if (path === "/roadmap") return safeRender(renderRoadmap());
   if (path === "/characters" || path.startsWith("/character/")) {
     location.hash = "#/home";
     return;
   }
-  if (path === "/wishlist") return renderWishlist();
-  if (path === "/blog") return renderBlogList();
-  if (path === "/blog/new") return renderNewBlogForm();
-  if (path.startsWith("/blog/")) return renderBlogPost(path.split("/")[2]);
-  if (path === "/shop") return renderShop();
-  if (path === "/contact") return renderContact();
+  if (path === "/wishlist") return safeRender(renderWishlist());
+  if (path === "/blog") return safeRender(renderBlogList());
+  if (path === "/blog/new") return safeRender(renderNewBlogForm());
+  if (path.startsWith("/blog/")) return safeRender(renderBlogPost(path.split("/")[2]));
+  if (path === "/shop") return safeRender(renderShop());
+  if (path === "/contact") return safeRender(renderContact());
   if (path === "/verify" || path === "/verify-otp" || path === "/auth/verify") {
     location.hash = "#/home";
     openAuthModal("verify", params.get("email") || "");
     return;
   }
-  if (path === "/privacy") return renderPrivacyPolicy();
-  if (path === "/terms") return renderTerms();
+  if (path === "/privacy") return safeRender(renderPrivacyPolicy());
+  if (path === "/terms") return safeRender(renderTerms());
   app.innerHTML = `<section class="section"><h1>Page not found</h1><a href="#/home" class="link">← Home</a></section>`;
 }
 
