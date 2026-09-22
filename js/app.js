@@ -37,8 +37,7 @@ function updateAuthHeader() {
          <span class="hello">${esc(uname)}</span>
          <a href="#/wishlist" class="pill">Wishlist</a>
          <button class="pill ghost" id="logout-btn">Log out</button>`
-      : `<button class="pill" id="open-auth">Sign up / Log in</button>
-         <a href="#/verify" class="sidebar-verify-link">Verify OTP &rarr;</a>`;
+      : `<button class="pill" id="open-auth">Sign up / Log in</button>`;
   }
 
   if (headerSlot) {
@@ -82,10 +81,24 @@ async function openNotificationsModal() {
   };
 }
 
-function openAuthModal(defaultMode = "login") {
+function openAuthModal(defaultMode = "login", initialEmail = "") {
   const modalRoot = document.getElementById("modal-root");
+  let currentResendTimer = null;
 
-  function renderStandardAuth(mode = "login") {
+  function closeModal() {
+    if (currentResendTimer) {
+      clearInterval(currentResendTimer);
+      currentResendTimer = null;
+    }
+    modalRoot.innerHTML = "";
+  }
+
+  function renderStandardAuth(mode = "login", prefillEmail = "", prefillUsername = "") {
+    if (currentResendTimer) {
+      clearInterval(currentResendTimer);
+      currentResendTimer = null;
+    }
+
     modalRoot.innerHTML = `
       <div class="modal-backdrop" id="modal-backdrop">
         <div class="modal comic-panel">
@@ -98,20 +111,20 @@ function openAuthModal(defaultMode = "login") {
           <form id="auth-form">
             <div id="username-field" style="display:${mode === "signup" ? "block" : "none"}">
               <label>Username
-                <input name="username" ${mode === "signup" ? "required" : ""} autocomplete="username" placeholder="e.g. IronSpidey">
+                <input name="username" value="${esc(prefillUsername)}" ${mode === "signup" ? "required" : ""} autocomplete="username" placeholder="e.g. IronSpidey">
               </label>
             </div>
             <label>Email Address
-              <input name="email" type="email" required autocomplete="email" placeholder="you@marvelindia.com">
+              <input name="email" type="email" value="${esc(prefillEmail)}" required autocomplete="email" placeholder="you@marvelindia.com">
             </label>
             <label>Password
               <input name="password" type="password" required autocomplete="${mode === "login" ? "current-password" : "new-password"}" minlength="6" placeholder="At least 6 characters">
             </label>
             <p class="form-error" id="auth-error"></p>
-            <button type="submit" class="pill primary full" id="auth-submit-btn">${mode === "login" ? "Log in" : "Create Account"}</button>
+            <button type="submit" class="pill primary full" id="auth-submit-btn">${mode === "login" ? "Log in" : "Continue &rarr;"}</button>
           </form>
           <div class="auth-verify-prompt">
-            Received a 6-digit confirmation code? <a href="#/verify" id="modal-link-verify" class="link">Enter OTP Code &rarr;</a>
+            Already have a confirmation code? <button type="button" id="modal-link-verify" class="link-btn" style="text-decoration:underline;color:var(--marvel-red);font-weight:700;">Enter OTP Code &rarr;</button>
           </div>
           <p class="fine-print">Join India's Marvel community to sync watchlists, write reviews, and track release dates.</p>
         </div>
@@ -122,10 +135,12 @@ function openAuthModal(defaultMode = "login") {
     const submitBtn = document.getElementById("auth-submit-btn");
     const usernameWrapper = document.getElementById("username-field");
     const usernameInput = form.querySelector('[name="username"]');
-    const noteEl = document.getElementById("auth-notification");
+    const emailInput = form.querySelector('[name="email"]');
+    const errEl = document.getElementById("auth-error");
 
     document.getElementById("modal-link-verify")?.addEventListener("click", () => {
-      closeModal();
+      const email = (emailInput?.value || "").trim().toLowerCase();
+      renderOtpStep(email, "");
     });
 
     document.querySelectorAll(".tab").forEach(tabBtn => {
@@ -135,8 +150,8 @@ function openAuthModal(defaultMode = "login") {
         currentMode = tabBtn.dataset.tab;
         usernameWrapper.style.display = currentMode === "signup" ? "block" : "none";
         usernameInput.required = currentMode === "signup";
-        submitBtn.textContent = currentMode === "login" ? "Log in" : "Create Account";
-        document.getElementById("auth-error").textContent = "";
+        submitBtn.textContent = currentMode === "login" ? "Log in" : "Continue →";
+        errEl.textContent = "";
       };
     });
 
@@ -151,7 +166,6 @@ function openAuthModal(defaultMode = "login") {
       const email = (fd.get("email") || "").trim().toLowerCase();
       const password = fd.get("password");
       const username = (fd.get("username") || "").trim();
-      const errEl = document.getElementById("auth-error");
       errEl.textContent = "";
 
       submitBtn.disabled = true;
@@ -162,7 +176,14 @@ function openAuthModal(defaultMode = "login") {
         submitBtn.disabled = false;
         submitBtn.textContent = "Log in";
         if (!result.ok) {
-          errEl.textContent = result.error || "Unable to log in. Please check your email and password.";
+          const errText = result.error || "Unable to log in. Please check your email and password.";
+          errEl.textContent = errText;
+          if (errText.toLowerCase().includes("confirm") || errText.toLowerCase().includes("not verified")) {
+            errEl.innerHTML = `${esc(errText)} <br><button type="button" id="login-goto-otp" class="link-btn" style="color:var(--marvel-red);text-decoration:underline;margin-top:6px;font-weight:700;">Enter verification code &rarr;</button>`;
+            document.getElementById("login-goto-otp")?.addEventListener("click", () => {
+              renderOtpStep(email, "");
+            });
+          }
           return;
         }
         closeModal();
@@ -171,15 +192,14 @@ function openAuthModal(defaultMode = "login") {
       } else {
         const result = await MI_AUTH.signup(username, email, password);
         submitBtn.disabled = false;
-        submitBtn.textContent = "Create Account";
+        submitBtn.textContent = "Continue →";
         if (!result.ok) {
           errEl.textContent = result.error || "Unable to create account. Please try a different email or password.";
           return;
         }
+        // User starts registration -> continues -> inline OTP screen appears!
         if (result.needsEmailConfirm) {
-          sessionStorage.setItem("mi_pending_otp_email", email);
-          closeModal();
-          location.hash = `#/verify?email=${encodeURIComponent(email)}&type=signup`;
+          renderOtpStep(email, username);
         } else {
           closeModal();
           updateAuthHeader();
@@ -189,7 +209,249 @@ function openAuthModal(defaultMode = "login") {
     };
   }
 
-  renderStandardAuth(defaultMode);
+  function renderOtpStep(email, username = "") {
+    if (currentResendTimer) {
+      clearInterval(currentResendTimer);
+      currentResendTimer = null;
+    }
+
+    modalRoot.innerHTML = `
+      <div class="modal-backdrop" id="modal-backdrop">
+        <div class="modal comic-panel modal-otp-step" style="max-width:440px;">
+          <button class="modal-close" id="modal-close" aria-label="Close modal">&times;</button>
+          
+          <div style="text-align:center;margin-bottom:14px;">
+            <div class="otp-crest-wrap" style="margin-bottom:8px;">
+              <div class="otp-crest" style="width:46px;height:46px;font-size:1.3rem;">⚡</div>
+            </div>
+            <h2 style="font-family:'Anton',sans-serif;font-size:1.6rem;letter-spacing:0.04em;margin:0 0 6px;color:var(--ink);">Verify Your Email</h2>
+            <p style="color:var(--muted);font-size:0.92rem;margin:0 0 4px;line-height:1.4;">
+              We sent a 6-digit confirmation code to<br>
+              <strong style="color:var(--ink);">${esc(email || "your email")}</strong>
+              <button type="button" id="modal-otp-change-email" class="link-btn" style="margin-left:6px;font-size:0.85rem;color:var(--marvel-red);text-decoration:underline;">(Change)</button>
+            </p>
+          </div>
+
+          <form id="modal-otp-form">
+            <div class="otp-digit-group" id="modal-digit-group" style="margin-bottom:10px;">
+              <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="0" autocomplete="one-time-code" autofocus>
+              <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="1" autocomplete="off">
+              <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="2" autocomplete="off">
+              <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="3" autocomplete="off">
+              <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="4" autocomplete="off">
+              <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="5" autocomplete="off">
+            </div>
+            <p class="fine-print" style="text-align:center;margin:0 0 12px;font-size:0.82rem;">Tip: You can paste your full 6-digit code directly into the boxes.</p>
+
+            <div id="modal-otp-error" class="form-error" style="text-align:center;margin-bottom:10px;"></div>
+            <div id="modal-otp-success" style="display:none;margin-bottom:12px;padding:8px 12px;background:#eef8ed;border:2px solid #2e7d32;border-radius:6px;color:#1b5e20;font-size:0.9rem;text-align:center;font-weight:700;"></div>
+
+            <button type="submit" class="pill primary full" id="modal-otp-submit-btn" style="font-size:1.05rem;padding:12px;">Complete Sign Up &rarr;</button>
+
+            <div class="otp-resend-row" style="margin-top:16px;text-align:center;display:flex;justify-content:center;align-items:center;gap:6px;font-size:0.9rem;">
+              <span style="color:var(--muted);">Didn't receive code?</span>
+              <button type="button" id="modal-otp-resend-btn" class="otp-btn-link" disabled style="opacity:0.6;cursor:not-allowed;font-weight:700;">Resend code in 2:00</button>
+            </div>
+          </form>
+        </div>
+      </div>`;
+
+    document.getElementById("modal-close").onclick = closeModal;
+    document.getElementById("modal-backdrop").onclick = (e) => {
+      if (e.target.id === "modal-backdrop") closeModal();
+    };
+
+    document.getElementById("modal-otp-change-email")?.addEventListener("click", () => {
+      renderStandardAuth("signup", email, username);
+    });
+
+    const digitBoxes = Array.from(modalRoot.querySelectorAll(".otp-digit-box"));
+    const form = document.getElementById("modal-otp-form");
+    const submitBtn = document.getElementById("modal-otp-submit-btn");
+    const resendBtn = document.getElementById("modal-otp-resend-btn");
+    const errEl = document.getElementById("modal-otp-error");
+    const succEl = document.getElementById("modal-otp-success");
+
+    // 2-minute cooldown timer (120 seconds) as specifically requested
+    let resendSeconds = 120;
+    function formatTime(s) {
+      const m = Math.floor(s / 60);
+      const sec = s % 60;
+      return `${m}:${sec < 10 ? "0" : ""}${sec}`;
+    }
+
+    function updateResendState() {
+      if (!resendBtn) return;
+      if (resendSeconds > 0) {
+        resendBtn.disabled = true;
+        resendBtn.style.opacity = "0.6";
+        resendBtn.style.cursor = "not-allowed";
+        resendBtn.textContent = `Resend code in ${formatTime(resendSeconds)}`;
+      } else {
+        resendBtn.disabled = false;
+        resendBtn.style.opacity = "1";
+        resendBtn.style.cursor = "pointer";
+        resendBtn.textContent = "Resend Code";
+      }
+    }
+
+    updateResendState();
+    currentResendTimer = setInterval(() => {
+      resendSeconds--;
+      updateResendState();
+      if (resendSeconds <= 0) {
+        clearInterval(currentResendTimer);
+        currentResendTimer = null;
+      }
+    }, 1000);
+
+    resendBtn.addEventListener("click", async () => {
+      if (resendSeconds > 0) return;
+      resendBtn.disabled = true;
+      resendBtn.textContent = "Sending…";
+      errEl.textContent = "";
+      succEl.style.display = "none";
+
+      const res = await MI_AUTH.resendVerificationOtp(email, "signup");
+      if (!res.ok) {
+        errEl.textContent = res.error || "Failed to resend code. Please try again.";
+        resendBtn.disabled = false;
+        resendBtn.textContent = "Resend Code";
+        return;
+      }
+
+      succEl.textContent = "A fresh 6-digit confirmation code has been sent!";
+      succEl.style.display = "block";
+      resendSeconds = 120; // 2 minutes cooldown
+      updateResendState();
+      if (currentResendTimer) clearInterval(currentResendTimer);
+      currentResendTimer = setInterval(() => {
+        resendSeconds--;
+        updateResendState();
+        if (resendSeconds <= 0) {
+          clearInterval(currentResendTimer);
+          currentResendTimer = null;
+        }
+      }, 1000);
+    });
+
+    function getEnteredToken() {
+      return digitBoxes.map(b => b.value.trim()).join("");
+    }
+
+    // Input handlers for 6-digit boxes
+    digitBoxes.forEach((box, idx) => {
+      box.addEventListener("input", () => {
+        const val = box.value.replace(/\D/g, "");
+        box.value = val ? val[0] : "";
+        errEl.textContent = "";
+        if (val && idx < 5) {
+          digitBoxes[idx + 1].focus();
+          digitBoxes[idx + 1].select();
+        }
+        if (getEnteredToken().length === 6) {
+          form.requestSubmit();
+        }
+      });
+
+      box.addEventListener("keydown", (e) => {
+        if (e.key === "Backspace") {
+          if (!box.value && idx > 0) {
+            digitBoxes[idx - 1].value = "";
+            digitBoxes[idx - 1].focus();
+          }
+        } else if (e.key === "ArrowLeft" && idx > 0) {
+          digitBoxes[idx - 1].focus();
+          digitBoxes[idx - 1].select();
+        } else if (e.key === "ArrowRight" && idx < 5) {
+          digitBoxes[idx + 1].focus();
+          digitBoxes[idx + 1].select();
+        }
+      });
+
+      box.addEventListener("paste", (e) => {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData("text") || "";
+        const digits = text.replace(/\D/g, "").slice(0, 6);
+        if (!digits) return;
+        for (let i = 0; i < 6; i++) {
+          if (i < digits.length) digitBoxes[i].value = digits[i];
+        }
+        if (digits.length >= 6) {
+          digitBoxes[5].focus();
+          form.requestSubmit();
+        } else {
+          digitBoxes[digits.length]?.focus();
+        }
+      });
+
+      box.addEventListener("focus", () => box.select());
+    });
+
+    setTimeout(() => digitBoxes[0]?.focus(), 150);
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const token = getEnteredToken();
+      errEl.textContent = "";
+
+      if (token.length !== 6 || !/^\d{6}$/.test(token)) {
+        errEl.textContent = "Please enter all 6 digits of your code.";
+        const firstEmpty = digitBoxes.find(b => !b.value.trim());
+        if (firstEmpty) firstEmpty.focus();
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Verifying…";
+
+      try {
+        const result = await MI_AUTH.verifyOtp(email, token, "signup");
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Complete Sign Up →";
+
+        if (!result.ok) {
+          errEl.textContent = result.error || "Invalid or expired code. Please try again.";
+          digitBoxes.forEach(b => {
+            b.classList.add("shake");
+            setTimeout(() => b.classList.remove("shake"), 400);
+          });
+          return;
+        }
+
+        // Successful completion!
+        if (currentResendTimer) {
+          clearInterval(currentResendTimer);
+          currentResendTimer = null;
+        }
+        const modalEl = modalRoot.querySelector(".modal");
+        if (modalEl) {
+          modalEl.innerHTML = `
+            <div style="padding:24px 16px;text-align:center;">
+              <div style="width:56px;height:56px;background:#2e7d32;color:#fff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:2rem;margin-bottom:12px;box-shadow:3px 3px 0 var(--ink);">✓</div>
+              <h2 style="font-family:'Anton',sans-serif;font-size:1.8rem;margin:0 0 6px;color:var(--ink);">Sign Up Complete!</h2>
+              <p style="color:var(--muted);font-size:1rem;margin:0;">Welcome to Marvel India!</p>
+            </div>
+          `;
+        }
+        updateAuthHeader();
+        setTimeout(() => {
+          closeModal();
+          route();
+        }, 1400);
+      } catch (err) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Complete Sign Up →";
+        errEl.textContent = "An error occurred: " + err.message;
+      }
+    };
+  }
+
+  if (defaultMode === "verify") {
+    renderOtpStep(initialEmail, "");
+  } else {
+    renderStandardAuth(defaultMode, initialEmail);
+  }
 }
 function closeModal() { document.getElementById("modal-root").innerHTML = ""; }
 
@@ -1417,351 +1679,7 @@ async function renderShop() {
     </section>`;
 }
 
-// ---------------------------------------------------------------- OTP VERIFICATION PAGE
-function renderOtpVerification(paramEmail, paramType) {
-  let targetEmail = (paramEmail || "").trim() || sessionStorage.getItem("mi_pending_otp_email") || "";
-  let targetType = (paramType || "").trim() || "signup";
-  const userId = currentUserId();
-
-  if (userId) {
-    app.innerHTML = `
-      ${backButton("#/home", "Back to Home")}
-      <section class="section otp-page-section">
-        <div class="otp-verify-card comic-panel">
-          <div class="otp-crest-wrap"><div class="otp-crest">✓</div></div>
-          <h1>Account Verified</h1>
-          <p class="otp-intro">You are currently signed in as <strong>${esc(currentUsername())}</strong>.</p>
-          <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:20px;">
-            <a href="#/home" class="pill primary">Go to Home</a>
-            <a href="#/roadmap" class="pill ghost">View Watch Plan</a>
-          </div>
-        </div>
-      </section>`;
-    return;
-  }
-
-  let isEditingEmail = !targetEmail;
-  let resendCooldown = 0;
-  let resendInterval = null;
-
-  app.innerHTML = `
-    ${backButton("#/home", "Back to Home")}
-    <section class="section otp-page-section">
-      <div class="otp-verify-card comic-panel">
-        <div class="otp-crest-wrap">
-          <div class="otp-crest">⚡</div>
-        </div>
-        <h1>Verify Your Account</h1>
-        <p class="otp-intro">Enter the 6-digit confirmation code sent to your email to verify and activate your Marvel India account.</p>
-
-        <div class="otp-email-box" id="otp-email-display-wrap" style="${isEditingEmail ? "display:none;" : ""}">
-          <div class="otp-email-content">
-            <span class="otp-email-label">Verification code sent to</span>
-            <span class="otp-email-address" id="otp-display-email-text">${esc(targetEmail)}</span>
-          </div>
-          <button type="button" class="otp-change-email-btn" id="btn-toggle-change-email">Change</button>
-        </div>
-
-        <div class="otp-email-input-wrap" id="otp-email-edit-wrap" style="${isEditingEmail ? "" : "display:none;"}">
-          <label>Your Email Address
-            <input type="email" id="otp-target-email-input" placeholder="you@marvelindia.com" value="${esc(targetEmail)}" autocomplete="email">
-          </label>
-          ${targetEmail ? `<div style="text-align:right;margin-top:4px;"><button type="button" class="link-btn" id="btn-cancel-email-edit" style="font-size:0.85rem;">Cancel</button></div>` : ""}
-        </div>
-
-        <label class="otp-digits-label">Enter 6-Digit Code</label>
-        <div class="otp-digit-group" id="otp-digit-group">
-          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="0" autocomplete="off" autofocus>
-          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="1" autocomplete="off">
-          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="2" autocomplete="off">
-          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="3" autocomplete="off">
-          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="4" autocomplete="off">
-          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="5" autocomplete="off">
-        </div>
-        <div class="otp-paste-hint">Tip: You can paste your 6-digit code directly into the boxes.</div>
-
-        <div id="otp-status-msg" class="otp-status" style="display:none;"></div>
-
-        <button type="button" id="btn-verify-submit" class="pill primary full" style="font-size:1.15rem;padding:12px;">Verify Code &amp; Continue &rarr;</button>
-
-        <div class="otp-resend-row">
-          <span>Didn't receive the code?</span>
-          <button type="button" id="btn-resend-trigger" class="otp-btn-link">Resend Code</button>
-          <span id="otp-timer-display" class="otp-timer" style="display:none;"></span>
-        </div>
-
-        <div class="otp-help-box">
-          <h4>Verification Tips</h4>
-          <ul>
-            <li>Check your Spam, Junk, or Promotions folder if the code doesn't arrive in 1-2 minutes.</li>
-            <li>Verification codes expire after 15 minutes.</li>
-            <li>Already verified? <a href="#/home" class="link">Return to Home</a> or <button type="button" class="link-btn" id="btn-open-password-login">Log in with password</button></li>
-          </ul>
-        </div>
-      </div>
-    </section>
-  `;
-
-  const digitBoxes = Array.from(app.querySelectorAll(".otp-digit-box"));
-  const statusMsg = document.getElementById("otp-status-msg");
-  const submitBtn = document.getElementById("btn-verify-submit");
-  const resendBtn = document.getElementById("btn-resend-trigger");
-  const timerDisplay = document.getElementById("otp-timer-display");
-  const emailInput = document.getElementById("otp-target-email-input");
-  const emailDisplayWrap = document.getElementById("otp-email-display-wrap");
-  const emailEditWrap = document.getElementById("otp-email-edit-wrap");
-  const emailDisplayText = document.getElementById("otp-display-email-text");
-  const changeEmailBtn = document.getElementById("btn-toggle-change-email");
-  const cancelEmailBtn = document.getElementById("btn-cancel-email-edit");
-  const loginWithPassBtn = document.getElementById("btn-open-password-login");
-
-  function setStatus(msg, type = "error") {
-    if (!statusMsg) return;
-    if (!msg) {
-      statusMsg.style.display = "none";
-      statusMsg.textContent = "";
-      return;
-    }
-    statusMsg.className = `otp-status ${type}`;
-    statusMsg.textContent = msg;
-    statusMsg.style.display = "block";
-  }
-
-  function getActiveEmail() {
-    if (emailInput && emailEditWrap && emailEditWrap.style.display !== "none") {
-      return (emailInput.value || "").trim().toLowerCase();
-    }
-    return (targetEmail || (emailInput ? emailInput.value : "")).trim().toLowerCase();
-  }
-
-  function getFullToken() {
-    return digitBoxes.map(b => b.value.trim()).join("");
-  }
-
-  // Box navigation & inputs
-  digitBoxes.forEach((box, idx) => {
-    box.addEventListener("input", () => {
-      const val = box.value.replace(/\D/g, "");
-      box.value = val ? val[0] : "";
-      setStatus("");
-      if (val && idx < 5) {
-        digitBoxes[idx + 1].focus();
-        digitBoxes[idx + 1].select();
-      }
-      if (getFullToken().length === 6) {
-        executeVerify();
-      }
-    });
-
-    box.addEventListener("keydown", (e) => {
-      if (e.key === "Backspace") {
-        if (!box.value && idx > 0) {
-          digitBoxes[idx - 1].value = "";
-          digitBoxes[idx - 1].focus();
-        }
-      } else if (e.key === "ArrowLeft" && idx > 0) {
-        digitBoxes[idx - 1].focus();
-        digitBoxes[idx - 1].select();
-      } else if (e.key === "ArrowRight" && idx < 5) {
-        digitBoxes[idx + 1].focus();
-        digitBoxes[idx + 1].select();
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        executeVerify();
-      }
-    });
-
-    box.addEventListener("paste", (e) => {
-      e.preventDefault();
-      const text = (e.clipboardData || window.clipboardData).getData("text") || "";
-      const digits = text.replace(/\D/g, "").slice(0, 6);
-      if (!digits) return;
-      for (let i = 0; i < 6; i++) {
-        if (i < digits.length) {
-          digitBoxes[i].value = digits[i];
-        }
-      }
-      if (digits.length >= 6) {
-        digitBoxes[5].focus();
-        executeVerify();
-      } else {
-        digitBoxes[digits.length].focus();
-      }
-    });
-
-    box.addEventListener("focus", () => {
-      box.select();
-    });
-  });
-
-  // Focus first box on load
-  setTimeout(() => {
-    if (digitBoxes[0] && !isEditingEmail) {
-      digitBoxes[0].focus();
-    } else if (emailInput && isEditingEmail) {
-      emailInput.focus();
-    }
-  }, 100);
-
-  // Email toggles
-  if (changeEmailBtn) {
-    changeEmailBtn.addEventListener("click", () => {
-      isEditingEmail = true;
-      if (emailDisplayWrap) emailDisplayWrap.style.display = "none";
-      if (emailEditWrap) emailEditWrap.style.display = "block";
-      if (emailInput) {
-        emailInput.focus();
-        emailInput.select();
-      }
-    });
-  }
-
-  if (cancelEmailBtn) {
-    cancelEmailBtn.addEventListener("click", () => {
-      isEditingEmail = false;
-      if (emailEditWrap) emailEditWrap.style.display = "none";
-      if (emailDisplayWrap) emailDisplayWrap.style.display = "flex";
-      if (digitBoxes[0]) digitBoxes[0].focus();
-    });
-  }
-
-  if (loginWithPassBtn) {
-    loginWithPassBtn.addEventListener("click", () => {
-      openAuthModal("login");
-    });
-  }
-
-  // Execution verification
-  async function executeVerify() {
-    const email = getActiveEmail();
-    const token = getFullToken();
-
-    if (!email || !email.includes("@")) {
-      setStatus("Please enter a valid email address.", "error");
-      if (emailEditWrap && emailEditWrap.style.display === "none") {
-        changeEmailBtn?.click();
-      }
-      emailInput?.focus();
-      return;
-    }
-
-    if (token.length !== 6 || !/^\d{6}$/.test(token)) {
-      setStatus("Please enter all 6 digits of your verification code.", "error");
-      const emptyIdx = digitBoxes.findIndex(b => !b.value.trim());
-      if (emptyIdx !== -1) {
-        digitBoxes[emptyIdx].focus();
-      } else {
-        digitBoxes[0].focus();
-      }
-      return;
-    }
-
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Verifying Code…";
-    setStatus("");
-
-    try {
-      const result = await MI_AUTH.verifyOtp(email, token, targetType);
-      submitBtn.disabled = false;
-      submitBtn.textContent = "Verify Code & Continue →";
-
-      if (!result.ok) {
-        setStatus(result.error || "Verification failed. The code may be incorrect or expired.", "error");
-        digitBoxes.forEach(b => b.classList.add("shake"));
-        setTimeout(() => digitBoxes.forEach(b => b.classList.remove("shake")), 400);
-        return;
-      }
-
-      sessionStorage.removeItem("mi_pending_otp_email");
-      const card = app.querySelector(".otp-verify-card");
-      if (card) {
-        card.innerHTML = `
-          <div class="otp-success-state">
-            <div class="otp-success-icon">✓</div>
-            <h2>Verification Successful!</h2>
-            <p>Your Marvel India account is now active and verified. Welcome to the multiverse, <strong>${esc(result.user?.email || email)}</strong>!</p>
-            <div style="display:flex;gap:12px;justify-content:center;margin-top:24px;flex-wrap:wrap;">
-              <a href="#/home" class="pill primary">Explore Marvel India</a>
-              <a href="#/roadmap" class="pill ghost">Build Watch Plan</a>
-            </div>
-          </div>
-        `;
-      }
-      updateAuthHeader();
-      setTimeout(() => {
-        if (location.hash.startsWith("#/verify")) {
-          location.hash = "#/home";
-        }
-      }, 2500);
-    } catch (err) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = "Verify Code & Continue →";
-      setStatus("An unexpected error occurred: " + err.message, "error");
-    }
-  }
-
-  submitBtn?.addEventListener("click", executeVerify);
-
-  // Resend code
-  resendBtn?.addEventListener("click", async () => {
-    if (resendCooldown > 0) return;
-    const email = getActiveEmail();
-    if (!email || !email.includes("@")) {
-      setStatus("Please enter a valid email address to resend code.", "error");
-      if (emailEditWrap && emailEditWrap.style.display === "none") {
-        changeEmailBtn?.click();
-      }
-      emailInput?.focus();
-      return;
-    }
-
-    resendBtn.disabled = true;
-    resendBtn.textContent = "Sending…";
-    setStatus("");
-
-    try {
-      const result = await MI_AUTH.resendVerificationOtp(email, targetType);
-      if (!result.ok) {
-        resendBtn.disabled = false;
-        resendBtn.textContent = "Resend Code";
-        setStatus(result.error || "Failed to resend verification code.", "error");
-        return;
-      }
-
-      setStatus(`A fresh 6-digit verification code has been sent to ${email}.`, "success");
-      targetEmail = email;
-      sessionStorage.setItem("mi_pending_otp_email", email);
-      if (emailDisplayText) emailDisplayText.textContent = email;
-      if (emailEditWrap) emailEditWrap.style.display = "none";
-      if (emailDisplayWrap) emailDisplayWrap.style.display = "flex";
-
-      resendCooldown = 30;
-      resendBtn.style.display = "none";
-      if (timerDisplay) {
-        timerDisplay.style.display = "inline";
-        timerDisplay.textContent = `(Resend in ${resendCooldown}s)`;
-      }
-
-      if (resendInterval) clearInterval(resendInterval);
-      resendInterval = setInterval(() => {
-        resendCooldown--;
-        if (resendCooldown <= 0) {
-          clearInterval(resendInterval);
-          resendBtn.style.display = "inline";
-          resendBtn.disabled = false;
-          resendBtn.textContent = "Resend Code";
-          if (timerDisplay) timerDisplay.style.display = "none";
-        } else {
-          if (timerDisplay) timerDisplay.textContent = `(Resend in ${resendCooldown}s)`;
-        }
-      }, 1000);
-    } catch (err) {
-      resendBtn.disabled = false;
-      resendBtn.textContent = "Resend Code";
-      setStatus("Error resending code: " + err.message, "error");
-    }
-  });
-}
+// Note: OTP verification is handled seamlessly inside the authentication modal (openAuthModal).
 
 // ---------------------------------------------------------------- ROUTER
 function parseHash() {
@@ -1796,7 +1714,11 @@ function route() {
   if (path === "/blog/new") return renderNewBlogForm();
   if (path.startsWith("/blog/")) return renderBlogPost(path.split("/")[2]);
   if (path === "/shop") return renderShop();
-  if (path === "/verify" || path === "/verify-otp" || path === "/auth/verify") return renderOtpVerification(params.get("email"), params.get("type"));
+  if (path === "/verify" || path === "/verify-otp" || path === "/auth/verify") {
+    location.hash = "#/home";
+    openAuthModal("verify", params.get("email") || "");
+    return;
+  }
   if (path === "/privacy") return renderPrivacyPolicy();
   if (path === "/terms") return renderTerms();
   app.innerHTML = `<section class="section"><h1>Page not found</h1><a href="#/home" class="link">← Home</a></section>`;

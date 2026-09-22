@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import omdbHandler from "./api/omdb.js";
 import tmdbHandler from "./api/tmdb.js";
+import configHandler from "./api/config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,23 +17,9 @@ app.use(express.urlencoded({ extended: true }));
 // Vercel serverless functions emulation
 app.all("/api/omdb", (req, res) => omdbHandler(req, res));
 app.all("/api/tmdb", (req, res) => tmdbHandler(req, res));
-
-// Dynamic config to support environment variables only
-app.get("/js/config.js", (req, res) => {
-  const config = {
-    SUPABASE_URL: process.env.SUPABASE_URL || "",
-    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || "",
-    TMDB_API_KEY: process.env.TMDB_API_KEY || "",
-    OMDB_API_KEY: process.env.OMDB_API_KEY || "",
-    WATCHMODE_API_KEY: process.env.WATCHMODE_API_KEY || "",
-    TMDB_MARVEL_COMPANY_ID: 420,
-    TMDB_IMAGE_BASE: "https://image.tmdb.org/t/p/w500",
-    TMDB_BACKDROP_BASE: "https://image.tmdb.org/t/p/original",
-    AMAZON_AFFILIATE_TAG: process.env.AMAZON_AFFILIATE_TAG || "marvelindia09-21"
-  };
-  res.type("application/javascript");
-  res.send(`window.MARVEL_INDIA_CONFIG = ${JSON.stringify(config, null, 2)};`);
-});
+app.all("/api/config", (req, res) => configHandler(req, res));
+app.all("/api/config.js", (req, res) => configHandler(req, res));
+app.get("/js/config.js", (req, res) => configHandler(req, res));
 
 // Serve static assets
 app.use(express.static(__dirname));

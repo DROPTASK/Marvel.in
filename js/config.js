@@ -4,7 +4,7 @@
  * Configuration is dynamically supplied via server environment variables.
  * Do not save API keys in this file.
  */
-window.MARVEL_INDIA_CONFIG = window.MARVEL_INDIA_CONFIG || {
+window.MARVEL_INDIA_CONFIG = Object.assign({
   SUPABASE_URL: "",
   SUPABASE_ANON_KEY: "",
   TMDB_API_KEY: "",
@@ -14,4 +14,4 @@ window.MARVEL_INDIA_CONFIG = window.MARVEL_INDIA_CONFIG || {
   TMDB_IMAGE_BASE: "https://image.tmdb.org/t/p/w500",
   TMDB_BACKDROP_BASE: "https://image.tmdb.org/t/p/original",
   AMAZON_AFFILIATE_TAG: "marvelindia09-21"
-};
+}, window.MARVEL_INDIA_CONFIG || {});
