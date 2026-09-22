@@ -16,7 +16,7 @@
 <meta name="twitter:description" content="A Marvel-focused hub: search, trailers &amp; teasers, watch-provider lookup, in-universe timeline, Doomsday watch-plan roadmap, community blog, and curated Marvel merchandise.">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="apple-touch-icon" href="favicon.svg">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=2.2.0">
 </head>
 <body>
 
@@ -105,6 +105,38 @@
         <div class="header-auth" id="header-auth-slot"></div>
       </div>
     </header>
+
+    <!-- Global Loading Skeleton Overlay (prevents blank screen during tab navigation and async loads) -->
+    <div id="global-skeleton-overlay" class="global-skeleton-overlay hidden" aria-hidden="true" role="status" aria-live="polite">
+      <div class="skeleton-incursion-bar"></div>
+      <div class="skeleton-content-frame">
+        <div class="skeleton-header-box">
+          <div class="skeleton-badge-pulse">
+            <span class="skeleton-radar-dot"></span>
+            <span class="skeleton-badge-text" id="skeleton-status-label">FETCHING IN-UNIVERSE DATA...</span>
+          </div>
+          <div class="skeleton-line-shimmer skeleton-title-bar"></div>
+          <div class="skeleton-line-shimmer skeleton-sub-bar"></div>
+        </div>
+        <div class="skeleton-grid-preview">
+          <div class="skeleton-card-panel comic-panel">
+            <div class="skeleton-card-media skeleton-shimmer"></div>
+            <div class="skeleton-card-line skeleton-shimmer" style="width: 85%;"></div>
+            <div class="skeleton-card-line skeleton-shimmer" style="width: 55%;"></div>
+          </div>
+          <div class="skeleton-card-panel comic-panel">
+            <div class="skeleton-card-media skeleton-shimmer"></div>
+            <div class="skeleton-card-line skeleton-shimmer" style="width: 75%;"></div>
+            <div class="skeleton-card-line skeleton-shimmer" style="width: 45%;"></div>
+          </div>
+          <div class="skeleton-card-panel comic-panel">
+            <div class="skeleton-card-media skeleton-shimmer"></div>
+            <div class="skeleton-card-line skeleton-shimmer" style="width: 90%;"></div>
+            <div class="skeleton-card-line skeleton-shimmer" style="width: 60%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <main id="app"></main>
 
@@ -205,12 +237,12 @@
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="/api/config.js" onerror="console.warn('[MarvelIndia] /api/config.js script load bypassed; using runtime fetch fallback.')"></script>
-<script src="js/data.js"></script>
-<script src="js/supabaseClient.js"></script>
-<script src="js/db.js"></script>
-<script src="js/api.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/notifications.js"></script>
-<script src="js/app.js"></script>
+<script src="js/data.js?v=2.2.0"></script>
+<script src="js/supabaseClient.js?v=2.2.0"></script>
+<script src="js/db.js?v=2.2.0"></script>
+<script src="js/api.js?v=2.2.0"></script>
+<script src="js/auth.js?v=2.2.0"></script>
+<script src="js/notifications.js?v=2.2.0"></script>
+<script src="js/app.js?v=2.2.0"></script>
 </body>
 </html>

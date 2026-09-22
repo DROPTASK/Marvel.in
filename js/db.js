@@ -496,9 +496,21 @@ const MI_DB = (() => {
         profiles: { username: "VibraniumAnalyst", avatar_url: null }
       }
     ];
+    try {
+      const custom = JSON.parse(localStorage.getItem("mi_user_blog_posts") || "[]");
+      if (Array.isArray(custom) && custom.length) {
+        return [...custom, ...seed];
+      }
+    } catch (_) {}
+    return seed;
   }
 
   async function getBlogPosts() {
+    let customLocal = [];
+    try {
+      customLocal = JSON.parse(localStorage.getItem("mi_user_blog_posts") || "[]");
+    } catch (_) {}
+
     if (!isReady()) return localBlogPosts();
     try {
       const { data, error } = await withTimeout(
@@ -506,7 +518,8 @@ const MI_DB = (() => {
         4000
       );
       if (error || !data || !data.length) return localBlogPosts();
-      return await enrichWithProfiles(data, "author_id");
+      const enriched = await enrichWithProfiles(data, "author_id");
+      return [...customLocal, ...enriched];
     } catch {
       return localBlogPosts();
     }
@@ -515,6 +528,10 @@ const MI_DB = (() => {
   async function getBlogPost(slug) {
     if (!isReady()) return localBlogPosts().find(p => p.slug === slug) || null;
     try {
+      const localMatch = localBlogPosts().find(p => p.slug === slug);
+      if (localMatch && localMatch.id && localMatch.id.startsWith("local-")) {
+        return localMatch;
+      }
       const { data, error } = await withTimeout(
         sb().from("blog_posts").select("id, title, slug, cover_image_url, body, tags, created_at, author_id").eq("slug", slug).maybeSingle(),
         4000
@@ -529,22 +546,57 @@ const MI_DB = (() => {
   function slugify(title) {
     return title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + Date.now().toString(36);
   }
-  async function createBlogPost(userId, { title, body, tags, coverFile }) {
-    if (!userId) return { ok: false, error: "Sign up or log in to publish." };
-    if (!title || !title.trim() || !body || !body.trim()) return { ok: false, error: "Title and body are required." };
-    let coverUrl = null;
-    if (coverFile) {
+  async function createBlogPost(userId, { title, body, tags, coverFile, coverUrl }) {
+    if (!userId) {
+      // Fallback author for offline guest mode
+      userId = "local-guest";
+    }
+    if (!title || !title.trim() || !body || !body.trim()) return { ok: false, error: "Title and content are required." };
+    let finalCoverUrl = coverUrl || null;
+    if (coverFile instanceof File) {
       const upload = await uploadBlogCover(userId, coverFile);
-      if (!upload.ok) return upload;
-      coverUrl = upload.url;
+      if (upload.ok) {
+        finalCoverUrl = upload.url;
+      }
+    } else if (typeof coverFile === "string" && coverFile.trim()) {
+      finalCoverUrl = coverFile.trim();
     }
     const slug = slugify(title);
-    const { error } = await sb().from("blog_posts").insert({
-      author_id: userId, title: title.trim(), slug, body: body.trim(),
-      tags: (tags || "").split(",").map(t => t.trim()).filter(Boolean),
-      cover_image_url: coverUrl
-    });
-    if (error) return { ok: false, error: error.message };
+    const tagArray = (tags || "").split(",").map(t => t.trim()).filter(Boolean);
+
+    // Save to local storage cache so it's instantly available everywhere
+    try {
+      const custom = JSON.parse(localStorage.getItem("mi_user_blog_posts") || "[]");
+      custom.unshift({
+        id: "local-" + Date.now(),
+        title: title.trim(),
+        slug,
+        body: body.trim(),
+        tags: tagArray,
+        cover_image_url: finalCoverUrl || "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=800&auto=format&fit=crop&q=80",
+        created_at: new Date().toISOString(),
+        author_id: userId,
+        profiles: { username: "Marvelite Writer", avatar_url: null }
+      });
+      localStorage.setItem("mi_user_blog_posts", JSON.stringify(custom.slice(0, 30)));
+    } catch (_) {}
+
+    if (!isReady()) {
+      return { ok: true, slug };
+    }
+
+    try {
+      const { error } = await sb().from("blog_posts").insert({
+        author_id: userId, title: title.trim(), slug, body: body.trim(),
+        tags: tagArray,
+        cover_image_url: finalCoverUrl
+      });
+      if (error) {
+        console.warn("[MarvelIndia] Remote blog save skipped, local draft saved:", error.message);
+      }
+    } catch (err) {
+      console.warn("[MarvelIndia] Remote blog save caught:", err);
+    }
     return { ok: true, slug };
   }
   async function getBlogComments(postId) {

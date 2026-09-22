@@ -1,8 +1,22 @@
 {
   "outputDirectory": ".",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/(css|js|assets)/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    }
+  ],
   "rewrites": [
     { "source": "/api/config.js", "destination": "/api/config.js" },
     { "source": "/js/config.js", "destination": "/api/config.js" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|css/|js/|assets/|favicon\\.svg|robots\\.txt).*)", "destination": "/index.html" }
   ]
 }

@@ -824,10 +824,28 @@ function homeTrailerCard(t) {
   `;
 }
 
+function getBlogExcerpt(body, maxLen = 150) {
+  if (!body) return "";
+  if (typeof body === "string" && (body.trim().startsWith("{") || body.includes('"blocks"'))) {
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed.blocks && Array.isArray(parsed.blocks)) {
+        const firstPara = parsed.blocks.find(b => b.type === "paragraph" && b.text);
+        if (firstPara) {
+          const text = firstPara.text.replace(/\s+/g, " ").trim();
+          return text.slice(0, maxLen) + (text.length > maxLen ? "…" : "");
+        }
+      }
+    } catch (_) {}
+  }
+  const clean = String(body).replace(/\s+/g, " ").trim();
+  return clean.slice(0, maxLen) + (clean.length > maxLen ? "…" : "");
+}
+
 function homeBlogFeedCard(p) {
   const author = esc(p.profiles ? p.profiles.username : "Contributor");
   const date = fmtDate(p.created_at);
-  const excerpt = esc(p.body ? p.body.replace(/\s+/g, " ").slice(0, 160) + (p.body.length > 160 ? "…" : "") : "");
+  const excerpt = esc(getBlogExcerpt(p.body, 160));
   const cover = p.cover_image_url ? String(p.cover_image_url).replace("http://", "https://") : "";
   return `
     <article class="feed-post-card comic-panel">
@@ -1727,17 +1745,75 @@ async function renderBlogList() {
   }
 }
 function blogCard(p) {
+  const excerpt = getBlogExcerpt(p.body, 140);
   return `
     <a class="blog-card comic-panel" href="#/blog/${p.slug}">
       ${p.cover_image_url ? `<div class="blog-cover" style="background-image:url('${p.cover_image_url}')"></div>` : ""}
       <div class="blog-card-body">
         <h3>${esc(p.title)}</h3>
         <p class="muted">by ${esc(p.profiles ? p.profiles.username : "someone")} · ${fmtDate(p.created_at)}</p>
-        <p>${esc(p.body.slice(0, 140))}${p.body.length > 140 ? "…" : ""}</p>
+        <p>${esc(excerpt)}</p>
         ${(p.tags || []).length ? `<div class="tag-row">${p.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
       </div>
     </a>`;
 }
+
+function formatArticleText(rawText) {
+  if (!rawText) return "";
+  let safe = esc(rawText);
+  // Support bold: **text**
+  safe = safe.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  // Support italics: *text*
+  safe = safe.replace(/(^|[^\*])\*([^\*]+)\*([^\*]|$)/g, "$1<em>$2</em>$3");
+  // Next-line feature: normalize carriage returns, then preserve single newlines with <br>
+  safe = safe.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  safe = safe.replace(/\n/g, "<br>");
+  return safe;
+}
+
+function renderArticleBody(rawBody) {
+  if (!rawBody) return `<p class="article-paragraph muted">No story content available.</p>`;
+
+  // 1. Check for sequential multi-block article payload
+  if (typeof rawBody === "string" && (rawBody.trim().startsWith("{") && rawBody.includes('"blocks"'))) {
+    try {
+      const parsed = JSON.parse(rawBody);
+      if (parsed.blocks && Array.isArray(parsed.blocks) && parsed.blocks.length) {
+        return parsed.blocks.map((block, idx) => {
+          if (block.type === "paragraph") {
+            const formatted = formatArticleText(block.text);
+            if (!formatted) return "";
+            return `<p class="article-paragraph" data-block="${idx}">${formatted}</p>`;
+          } else if (block.type === "image") {
+            const src = block.url ? String(block.url).replace("http://", "https://") : "";
+            if (!src) return "";
+            return `
+              <figure class="article-image-figure" data-block="${idx}">
+                <img src="${esc(src)}" alt="${esc(block.caption || 'Article photo')}" loading="lazy">
+                ${block.caption ? `
+                  <figcaption class="article-image-caption">
+                    <span>[PHOTO]</span> ${esc(block.caption)}
+                  </figcaption>` : ""}
+              </figure>
+            `;
+          }
+          return "";
+        }).join("");
+      }
+    } catch (e) {
+      console.warn("[MarvelIndia] Multi-block JSON parse fallback:", e);
+    }
+  }
+
+  // 2. Standard single or multi-line article format with next-line support
+  const paragraphs = String(rawBody).split(/\n\s*\n/);
+  return paragraphs.map((p, idx) => {
+    const trimmed = p.trim();
+    if (!trimmed) return "";
+    return `<p class="article-paragraph" data-block="${idx}">${formatArticleText(trimmed)}</p>`;
+  }).join("");
+}
+
 async function renderBlogPost(slug) {
   app.innerHTML = `<div class="loading">Loading post…</div>`;
   let post = null;
@@ -1763,21 +1839,39 @@ async function renderBlogPost(slug) {
   } catch (err) {
     suggestionsHtml = "";
   }
-  app.innerHTML = `
-    <section class="section">
-      ${post.cover_image_url ? `<div class="blog-detail-cover" style="background-image:url('${post.cover_image_url}')"></div>` : ""}
-      <h1>${esc(post.title)}</h1>
-      <p class="muted">by ${esc(post.profiles ? post.profiles.username : "someone")} · ${fmtDate(post.created_at)}</p>
-      ${(post.tags || []).length ? `<div class="tag-row">${post.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
-      <div class="blog-body">${esc(post.body).split("\n\n").map(p => `<p>${p}</p>`).join("")}</div>
 
-      <h2>Comments</h2>
-      <div id="comments-list">${renderComments(comments.map(c => ({ ...c, body: c.body })))}</div>
-      <form id="comment-form" class="comment-form">
-        <textarea name="text" placeholder="${userId ? "Add a comment…" : "Sign up or log in to comment"}" ${userId ? "" : "disabled"}></textarea>
-        <button class="pill primary" type="submit" ${userId ? "" : "disabled"}>Post</button>
-      </form>
-      <p class="form-error" id="comment-error"></p>
+  const renderedContent = renderArticleBody(post.body);
+
+  app.innerHTML = `
+    <section class="section blog-post-view">
+      <div class="comic-panel" style="padding: 24px 28px; background: #ffffff; margin-bottom: 24px;">
+        ${post.cover_image_url ? `<div class="blog-detail-cover" style="background-image:url('${post.cover_image_url}')"></div>` : ""}
+        <div class="blog-post-header">
+          <h1>${esc(post.title)}</h1>
+          <div class="blog-author-bar">
+            <span>By <strong>${esc(post.profiles ? post.profiles.username : "Marvelite Writer")}</strong></span>
+            <span>&bull;</span>
+            <span>${fmtDate(post.created_at)}</span>
+            <span>&bull;</span>
+            <span>Indian Marvel Community</span>
+          </div>
+          ${(post.tags || []).length ? `<div class="tag-row">${post.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
+        </div>
+
+        <div class="blog-article-content">
+          ${renderedContent}
+        </div>
+      </div>
+
+      <div class="comic-panel" style="padding: 24px; background: #ffffff;">
+        <h2 style="margin-top:0;">Marvelite Discussion &amp; Comments</h2>
+        <div id="comments-list">${renderComments(comments.map(c => ({ ...c, body: c.body })))}</div>
+        <form id="comment-form" class="comment-form" style="margin-top:16px;">
+          <textarea name="text" placeholder="${userId ? "Join the discussion… Enter your theory or thoughts" : "Sign up or log in to comment"}" ${userId ? "" : "disabled"}></textarea>
+          <button class="pill primary" type="submit" ${userId ? "" : "disabled"}>Post Comment</button>
+        </form>
+        <p class="form-error" id="comment-error"></p>
+      </div>
     </section>
 
     <!-- SUGGESTIONS: OTHER BLOGS & MOVIES -->
@@ -1791,29 +1885,449 @@ async function renderBlogPost(slug) {
     renderBlogPost(slug);
   };
 }
+
 function renderNewBlogForm() {
   const userId = currentUserId();
   if (!userId) { openAuthModal(); location.hash = "#/blog"; return; }
-  app.innerHTML = `
-    <section class="section">
-      <h1>Write a post</h1>
-      <form id="new-post-form" class="stacked-form comic-panel">
-        <label>Title <input name="title" required></label>
-        <label>Tags <input name="tags" placeholder="theory, review, phase-6"></label>
-        <label>Cover image <input name="cover" type="file" accept="image/*"></label>
-        <label>Body <textarea name="body" rows="10" required placeholder="Separate paragraphs with a blank line."></textarea></label>
-        <p class="form-error" id="post-error"></p>
-        <button class="pill primary" type="submit">Publish</button>
-      </form>
-    </section>`;
-  document.getElementById("new-post-form").onsubmit = async (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const coverFile = fd.get("cover") && fd.get("cover").size ? fd.get("cover") : null;
-    const result = await MI_DB.createBlogPost(userId, { title: fd.get("title"), body: fd.get("body"), tags: fd.get("tags"), coverFile });
-    if (!result.ok) { document.getElementById("post-error").textContent = result.error; return; }
-    location.hash = `#/blog/${result.slug}`;
-  };
+
+  // Sequential builder state: start with one paragraph
+  let blockCounter = 1;
+  let articleBlocks = [
+    { id: 1, type: "paragraph", text: "" }
+  ];
+  let showLivePreview = false;
+  let coverPreviewUrl = "";
+
+  function renderBuilder() {
+    app.innerHTML = `
+      <section class="section blog-builder-wrap">
+        <div class="section-head" style="margin-bottom:16px;">
+          <div>
+            <h1>Craft Community Dispatch</h1>
+            <p class="muted">Compose rich Marvel theories, reviews, and breakdowns with sequential paragraphs and in-article photos.</p>
+          </div>
+          <a href="#/blog" class="link">&larr; Back to Blog</a>
+        </div>
+
+        <form id="new-post-form" class="blog-builder-form">
+          <!-- Main Info Panel -->
+          <div class="comic-panel blog-builder-hero-panel">
+            <h2 style="margin-top:0; font-size:1.4rem;">1. Story Essentials</h2>
+            <div style="display:flex; flex-direction:column; gap:14px;">
+              <label style="display:flex; flex-direction:column; gap:4px; font-family:'Barlow Condensed',sans-serif; font-weight:700;">
+                Article Headline / Title *
+                <input name="title" id="builder-title" required placeholder="e.g. Battleworld Layout Deciphered: Secret Wars Breakdown" style="font-family:'Anton',sans-serif; font-size:1.3rem; padding:10px 14px; border:2px solid var(--ink);">
+              </label>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px;">
+                <label style="display:flex; flex-direction:column; gap:4px; font-family:'Barlow Condensed',sans-serif; font-weight:700;">
+                  Topic Tags (comma separated)
+                  <input name="tags" id="builder-tags" placeholder="theory, secret-wars, phase-6" style="padding:8px 12px; border:2px solid var(--ink);">
+                </label>
+                <label style="display:flex; flex-direction:column; gap:4px; font-family:'Barlow Condensed',sans-serif; font-weight:700;">
+                  Cover Image URL (optional)
+                  <input name="cover_url" id="builder-cover-url" type="url" placeholder="https://images.unsplash.com/..." style="padding:8px 12px; border:2px solid var(--ink);">
+                </label>
+              </div>
+              <label style="display:flex; flex-direction:column; gap:4px; font-family:'Barlow Condensed',sans-serif; font-weight:700;">
+                Or Upload Cover Banner File
+                <input name="cover_file" id="builder-cover-file" type="file" accept="image/*" style="font-size:0.95rem;">
+              </label>
+            </div>
+          </div>
+
+          <!-- Sequential Story Flow Section -->
+          <div class="comic-panel" style="background:#ffffff; padding:24px; margin-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-bottom:2px solid var(--ink); padding-bottom:12px;">
+              <div>
+                <h2 style="margin:0; font-size:1.4rem;">2. Story Content Flow</h2>
+                <span class="muted" style="font-size:0.92rem;">Add paragraphs and images sequentially one by one in your desired reading order.</span>
+              </div>
+              <button type="button" class="pill ghost mini-pill" id="toggle-preview-btn">
+                ${showLivePreview ? "Hide Live Preview" : "Show Live Preview"}
+              </button>
+            </div>
+
+            <!-- List of Sequential Blocks -->
+            <div class="builder-blocks-list" id="builder-blocks-container">
+              ${renderBlocksListHtml()}
+            </div>
+
+            <!-- Toolbar to Add Next Block One by One -->
+            <div class="builder-actions-toolbar">
+              <span style="font-family:'Barlow Condensed',sans-serif; font-weight:700; text-transform:uppercase; font-size:0.95rem; color:var(--ink);">+ Insert Next Element:</span>
+              <button type="button" class="builder-add-btn" id="add-para-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Add Paragraph Block
+              </button>
+              <button type="button" class="builder-add-btn" id="add-img-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                Add Image Block
+              </button>
+            </div>
+
+            <!-- Optional Real-time Story Preview -->
+            <div id="live-preview-section" style="display:${showLivePreview ? "block" : "none"};">
+              <div class="live-preview-box">
+                <span class="tag" style="background:var(--ink); color:#fff; margin-bottom:12px; display:inline-block;">REAL-TIME ARTICLE PREVIEW</span>
+                <div class="blog-article-content" id="preview-render-target">
+                  ${getLivePreviewHtml()}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Submission & Error Feedback -->
+          <div class="comic-panel" style="background:#ffffff; padding:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+            <p class="form-error" id="post-error" style="margin:0; font-weight:700;"></p>
+            <div style="display:flex; gap:12px;">
+              <a href="#/blog" class="pill">Cancel</a>
+              <button class="pill primary" id="publish-submit-btn" type="submit" style="font-size:1.1rem; padding:10px 24px;">Publish Dispatch &rarr;</button>
+            </div>
+          </div>
+        </form>
+      </section>
+    `;
+
+    bindBuilderEvents();
+  }
+
+  function renderBlocksListHtml() {
+    return articleBlocks.map((block, index) => {
+      const isFirst = index === 0;
+      const isLast = index === articleBlocks.length - 1;
+      const num = index + 1;
+
+      if (block.type === "paragraph") {
+        return `
+          <div class="blog-builder-block comic-panel block-type-paragraph" data-block-id="${block.id}">
+            <div class="block-header-row">
+              <span class="block-badge">
+                <span style="color:var(--marvel-red);">#${num}</span> PARAGRAPH
+              </span>
+              <div class="block-controls">
+                <button type="button" class="block-ctrl-btn move-up-btn" data-id="${block.id}" ${isFirst ? "disabled" : ""} title="Move up">▲ Up</button>
+                <button type="button" class="block-ctrl-btn move-down-btn" data-id="${block.id}" ${isLast ? "disabled" : ""} title="Move down">▼ Down</button>
+                <button type="button" class="block-ctrl-btn btn-delete remove-btn" data-id="${block.id}" title="Remove paragraph" ${articleBlocks.length <= 1 ? "disabled" : ""}>✕ Remove</button>
+              </div>
+            </div>
+            <textarea class="para-block-textarea" data-id="${block.id}" placeholder="Type paragraph content here... Press Enter for a clean next line. Single return creates a line break (<br>), double return creates spacing. Supports **bold** and *italic*.">${esc(block.text || "")}</textarea>
+            <div class="para-format-hint">
+              <span>Next-line formatting active: Enter creates line breaks</span>
+              <span class="char-counter" id="counter-${block.id}">${(block.text || "").length} characters</span>
+            </div>
+          </div>
+        `;
+      } else if (block.type === "image") {
+        return `
+          <div class="blog-builder-block comic-panel block-type-image" data-block-id="${block.id}">
+            <div class="block-header-row">
+              <span class="block-badge" style="background:#fff3d1;">
+                <span style="color:#b8860b;">#${num}</span> IN-STORY PHOTO
+              </span>
+              <div class="block-controls">
+                <button type="button" class="block-ctrl-btn move-up-btn" data-id="${block.id}" ${isFirst ? "disabled" : ""} title="Move up">▲ Up</button>
+                <button type="button" class="block-ctrl-btn move-down-btn" data-id="${block.id}" ${isLast ? "disabled" : ""} title="Move down">▼ Down</button>
+                <button type="button" class="block-ctrl-btn btn-delete remove-btn" data-id="${block.id}" title="Remove image">✕ Remove</button>
+              </div>
+            </div>
+            <div class="image-block-body">
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:10px;">
+                <label style="font-family:'Barlow Condensed',sans-serif; font-size:0.92rem; font-weight:700;">
+                  Upload Photo File:
+                  <input type="file" class="img-block-file-input" data-id="${block.id}" accept="image/*" style="margin-top:4px; font-size:0.9rem;">
+                </label>
+                <label style="font-family:'Barlow Condensed',sans-serif; font-size:0.92rem; font-weight:700;">
+                  Or Enter Image URL:
+                  <input type="url" class="img-block-url-input" data-id="${block.id}" value="${esc(block.url || "")}" placeholder="https://..." style="margin-top:4px; width:100%; padding:6px 10px; border:2px solid var(--ink);">
+                </label>
+              </div>
+
+              ${block.url ? `
+                <div class="image-preview-panel">
+                  <img src="${esc(block.url)}" alt="Preview" onerror="this.src='assets/placeholder-poster.svg'">
+                </div>` : `
+                <div class="image-preview-panel" style="padding:20px; color:var(--muted); font-family:'Barlow Condensed',sans-serif; font-size:0.95rem;">
+                  No photo selected yet. Upload an image file or paste a web URL above.
+                </div>
+              `}
+
+              <label style="font-family:'Barlow Condensed',sans-serif; font-size:0.92rem; font-weight:700;">
+                Caption / Attribution (optional):
+                <input type="text" class="image-caption-input" data-id="${block.id}" value="${esc(block.caption || "")}" placeholder="e.g. Doctor Doom in Secret Wars issue #1 (Marvel Comics)...">
+              </label>
+            </div>
+          </div>
+        `;
+      }
+      return "";
+    }).join("");
+  }
+
+  function getLivePreviewHtml() {
+    const validBlocks = articleBlocks.filter(b => (b.type === "paragraph" && b.text.trim()) || (b.type === "image" && b.url));
+    if (!validBlocks.length) {
+      return `<p class="muted" style="font-style:italic;">Your sequential article preview will appear here as you type paragraphs and add photos...</p>`;
+    }
+    return validBlocks.map(b => {
+      if (b.type === "paragraph") {
+        return `<p class="article-paragraph">${formatArticleText(b.text)}</p>`;
+      } else if (b.type === "image") {
+        return `
+          <figure class="article-image-figure">
+            <img src="${esc(b.url)}" alt="${esc(b.caption || 'Article photo')}">
+            ${b.caption ? `<figcaption class="article-image-caption"><span>[PHOTO]</span> ${esc(b.caption)}</figcaption>` : ""}
+          </figure>
+        `;
+      }
+      return "";
+    }).join("");
+  }
+
+  function syncFormData() {
+    // Preserve current values of title and tags
+    const titleEl = document.getElementById("builder-title");
+    const tagsEl = document.getElementById("builder-tags");
+    const coverUrlEl = document.getElementById("builder-cover-url");
+    return {
+      title: titleEl ? titleEl.value : "",
+      tags: tagsEl ? tagsEl.value : "",
+      coverUrl: coverUrlEl ? coverUrlEl.value : ""
+    };
+  }
+
+  function restoreFormData(saved) {
+    const titleEl = document.getElementById("builder-title");
+    const tagsEl = document.getElementById("builder-tags");
+    const coverUrlEl = document.getElementById("builder-cover-url");
+    if (titleEl && saved.title) titleEl.value = saved.title;
+    if (tagsEl && saved.tags) tagsEl.value = saved.tags;
+    if (coverUrlEl && saved.coverUrl) coverUrlEl.value = saved.coverUrl;
+  }
+
+  function refreshBlocksUI() {
+    const saved = syncFormData();
+    const container = document.getElementById("builder-blocks-container");
+    if (container) {
+      container.innerHTML = renderBlocksListHtml();
+      bindBlockEvents();
+    }
+    const previewEl = document.getElementById("preview-render-target");
+    if (previewEl) {
+      previewEl.innerHTML = getLivePreviewHtml();
+    }
+    restoreFormData(saved);
+  }
+
+  function bindBlockEvents() {
+    // Textarea inputs
+    document.querySelectorAll(".para-block-textarea").forEach(textarea => {
+      textarea.addEventListener("input", (e) => {
+        const id = Number(e.target.dataset.id);
+        const block = articleBlocks.find(b => b.id === id);
+        if (block) {
+          block.text = e.target.value;
+          const counter = document.getElementById(`counter-${id}`);
+          if (counter) counter.textContent = `${block.text.length} characters`;
+          if (showLivePreview) {
+            const previewEl = document.getElementById("preview-render-target");
+            if (previewEl) previewEl.innerHTML = getLivePreviewHtml();
+          }
+        }
+      });
+    });
+
+    // Image URL inputs
+    document.querySelectorAll(".img-block-url-input").forEach(inp => {
+      inp.addEventListener("change", (e) => {
+        const id = Number(e.target.dataset.id);
+        const block = articleBlocks.find(b => b.id === id);
+        if (block) {
+          block.url = e.target.value.trim();
+          refreshBlocksUI();
+        }
+      });
+    });
+
+    // Image File inputs
+    document.querySelectorAll(".img-block-file-input").forEach(fileInp => {
+      fileInp.addEventListener("change", (e) => {
+        const id = Number(e.target.dataset.id);
+        const file = e.target.files && e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (re) => {
+            const block = articleBlocks.find(b => b.id === id);
+            if (block) {
+              block.url = re.target.result; // Data URL for instant rendering
+              block.file = file;
+              refreshBlocksUI();
+            }
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    });
+
+    // Image Caption inputs
+    document.querySelectorAll(".image-caption-input").forEach(inp => {
+      inp.addEventListener("input", (e) => {
+        const id = Number(e.target.dataset.id);
+        const block = articleBlocks.find(b => b.id === id);
+        if (block) {
+          block.caption = e.target.value;
+          if (showLivePreview) {
+            const previewEl = document.getElementById("preview-render-target");
+            if (previewEl) previewEl.innerHTML = getLivePreviewHtml();
+          }
+        }
+      });
+    });
+
+    // Move Up
+    document.querySelectorAll(".move-up-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = Number(btn.dataset.id);
+        const idx = articleBlocks.findIndex(b => b.id === id);
+        if (idx > 0) {
+          const temp = articleBlocks[idx];
+          articleBlocks[idx] = articleBlocks[idx - 1];
+          articleBlocks[idx - 1] = temp;
+          refreshBlocksUI();
+        }
+      });
+    });
+
+    // Move Down
+    document.querySelectorAll(".move-down-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = Number(btn.dataset.id);
+        const idx = articleBlocks.findIndex(b => b.id === id);
+        if (idx >= 0 && idx < articleBlocks.length - 1) {
+          const temp = articleBlocks[idx];
+          articleBlocks[idx] = articleBlocks[idx + 1];
+          articleBlocks[idx + 1] = temp;
+          refreshBlocksUI();
+        }
+      });
+    });
+
+    // Remove Block
+    document.querySelectorAll(".remove-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = Number(btn.dataset.id);
+        if (articleBlocks.length <= 1) return;
+        articleBlocks = articleBlocks.filter(b => b.id !== id);
+        refreshBlocksUI();
+      });
+    });
+  }
+
+  function bindBuilderEvents() {
+    bindBlockEvents();
+
+    // Toggle live preview
+    document.getElementById("toggle-preview-btn")?.addEventListener("click", () => {
+      showLivePreview = !showLivePreview;
+      const prevSection = document.getElementById("live-preview-section");
+      if (prevSection) prevSection.style.display = showLivePreview ? "block" : "none";
+      const toggleBtn = document.getElementById("toggle-preview-btn");
+      if (toggleBtn) toggleBtn.textContent = showLivePreview ? "Hide Live Preview" : "Show Live Preview";
+      if (showLivePreview) {
+        const previewEl = document.getElementById("preview-render-target");
+        if (previewEl) previewEl.innerHTML = getLivePreviewHtml();
+      }
+    });
+
+    // Add Paragraph Block button
+    document.getElementById("add-para-btn")?.addEventListener("click", () => {
+      blockCounter++;
+      articleBlocks.push({ id: blockCounter, type: "paragraph", text: "" });
+      refreshBlocksUI();
+      // Scroll to the newly added block
+      setTimeout(() => {
+        const newBlockEl = document.querySelector(`.blog-builder-block[data-block-id="${blockCounter}"] textarea`);
+        if (newBlockEl) newBlockEl.focus();
+      }, 100);
+    });
+
+    // Add Image Block button
+    document.getElementById("add-img-btn")?.addEventListener("click", () => {
+      blockCounter++;
+      articleBlocks.push({ id: blockCounter, type: "image", url: "", caption: "", file: null });
+      refreshBlocksUI();
+      setTimeout(() => {
+        const newBlockEl = document.querySelector(`.blog-builder-block[data-block-id="${blockCounter}"]`);
+        if (newBlockEl) newBlockEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 100);
+    });
+
+    // Form submission
+    const form = document.getElementById("new-post-form");
+    if (form) {
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const errEl = document.getElementById("post-error");
+        const submitBtn = document.getElementById("publish-submit-btn");
+        errEl.textContent = "";
+
+        const title = (document.getElementById("builder-title")?.value || "").trim();
+        const tags = (document.getElementById("builder-tags")?.value || "").trim();
+        const coverUrlInput = (document.getElementById("builder-cover-url")?.value || "").trim();
+        const coverFileInput = document.getElementById("builder-cover-file");
+        const coverFile = coverFileInput && coverFileInput.files && coverFileInput.files[0] ? coverFileInput.files[0] : null;
+
+        if (!title) {
+          errEl.textContent = "Please provide an article title.";
+          return;
+        }
+
+        // Validate that at least one paragraph has content
+        const hasText = articleBlocks.some(b => b.type === "paragraph" && b.text.trim().length > 0);
+        if (!hasText) {
+          errEl.textContent = "Please add at least one paragraph of text to your article.";
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Publishing Dispatch…";
+
+        // Package blocks cleanly
+        const cleanBlocks = articleBlocks
+          .filter(b => (b.type === "paragraph" && b.text.trim()) || (b.type === "image" && b.url))
+          .map(b => {
+            if (b.type === "paragraph") {
+              return { type: "paragraph", text: b.text.trim() };
+            } else {
+              return { type: "image", url: b.url, caption: (b.caption || "").trim() };
+            }
+          });
+
+        const bodyJson = JSON.stringify({
+          version: 2,
+          blocks: cleanBlocks
+        });
+
+        const result = await MI_DB.createBlogPost(userId, {
+          title,
+          body: bodyJson,
+          tags,
+          coverFile,
+          coverUrl: coverUrlInput || null
+        });
+
+        if (!result.ok) {
+          errEl.textContent = result.error || "Failed to publish article. Please try again.";
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Publish Dispatch →";
+          return;
+        }
+
+        location.hash = `#/blog/${result.slug}`;
+      };
+    }
+  }
+
+  renderBuilder();
 }
 
 // ---------------------------------------------------------------- VIDEO MODAL
@@ -2388,6 +2902,43 @@ async function renderShop() {
   });
 }
 
+// ---------------------------------------------------------------- GLOBAL LOADING SKELETON
+let _skeletonHideTimer = null;
+let _skeletonMinShowTimestamp = 0;
+
+window.showGlobalSkeleton = function(customLabel) {
+  if (_skeletonHideTimer) {
+    clearTimeout(_skeletonHideTimer);
+    _skeletonHideTimer = null;
+  }
+  const overlay = document.getElementById("global-skeleton-overlay");
+  const labelEl = document.getElementById("skeleton-status-label");
+  if (labelEl && customLabel) {
+    labelEl.textContent = customLabel;
+  }
+  if (overlay) {
+    overlay.classList.remove("hidden");
+    overlay.setAttribute("aria-hidden", "false");
+    _skeletonMinShowTimestamp = Date.now();
+  }
+};
+
+window.hideGlobalSkeleton = function(forceImmediate = false) {
+  const overlay = document.getElementById("global-skeleton-overlay");
+  if (!overlay) return;
+
+  const elapsed = Date.now() - _skeletonMinShowTimestamp;
+  const minDisplayTime = forceImmediate ? 0 : 80;
+  const remaining = Math.max(0, minDisplayTime - elapsed);
+
+  if (_skeletonHideTimer) clearTimeout(_skeletonHideTimer);
+  _skeletonHideTimer = setTimeout(() => {
+    overlay.classList.add("hidden");
+    overlay.setAttribute("aria-hidden", "true");
+    _skeletonHideTimer = null;
+  }, remaining);
+};
+
 // ---------------------------------------------------------------- ROUTER
 function parseHash() {
   const raw = location.hash.slice(1) || "/home";
@@ -2395,22 +2946,27 @@ function parseHash() {
   const params = new URLSearchParams(qs || "");
   return { path, params };
 }
+
 function safeRender(renderPromise) {
-  return Promise.resolve(renderPromise).catch(err => {
-    console.error("[MarvelIndia] Route render failed:", err);
-    const appEl = document.getElementById("app");
-    if (appEl) {
-      appEl.innerHTML = `
-        <section class="section" style="text-align: center; padding: 48px 16px;">
-          <h2>Unable to load content right now</h2>
-          <p class="muted" style="margin: 12px 0 24px;">A network or rendering timeout occurred. You can retry or return to the main hub.</p>
-          <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-            <button type="button" class="pill primary" onclick="route()">Retry Tab</button>
-            <a href="#/home" class="pill">Back to Home</a>
-          </div>
-        </section>`;
-    }
-  });
+  return Promise.resolve(renderPromise)
+    .catch(err => {
+      console.error("[MarvelIndia] Route render failed:", err);
+      const appEl = document.getElementById("app");
+      if (appEl) {
+        appEl.innerHTML = `
+          <section class="section" style="text-align: center; padding: 48px 16px;">
+            <h2>Unable to load content right now</h2>
+            <p class="muted" style="margin: 12px 0 24px;">A network or rendering timeout occurred. You can retry or return to the main hub.</p>
+            <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+              <button type="button" class="pill primary" onclick="route()">Retry Tab</button>
+              <a href="#/home" class="pill">Back to Home</a>
+            </div>
+          </section>`;
+      }
+    })
+    .finally(() => {
+      window.hideGlobalSkeleton();
+    });
 }
 
 function route() {
@@ -2425,6 +2981,23 @@ function route() {
     a.classList.toggle("active", routeName === top || (top === "movie" && routeName === "search"));
   });
 
+  const routeStatusLabels = {
+    home: "ASSEMBLING MULTIVERSE ROSTER...",
+    search: "SCANNING MARVEL CINEMATIC DATABASE...",
+    movie: "DECRYPTING CANON DOSSIER & STREAMING...",
+    trailers: "STREAMING THEATRICAL TEASERS & CLIPS...",
+    timeline: "DECIPHERING MCU CHRONOLOGICAL TIMELINE...",
+    roadmap: "CALCULATING DOOMSDAY PREPARATION PLAN...",
+    blog: "RETRIEVING MARVELITE COMMUNITY THEORIES...",
+    shop: "CURATING AUTHENTIC MARVEL COLLECTIBLES...",
+    wishlist: "LOADING PERSONAL WATCH WISHLIST...",
+    contact: "CONNECTING TO EDITORIAL DISPATCH...",
+    privacy: "OPENING PRIVACY DIRECTIVES...",
+    terms: "LOADING COMMUNITY CHARTER & TERMS..."
+  };
+  const statusLabel = routeStatusLabels[top] || "FETCHING IN-UNIVERSE DATA...";
+  window.showGlobalSkeleton(statusLabel);
+
   if (path === "/home" || path === "/") return safeRender(renderHome());
   if (path === "/search") return safeRender(renderSearch(params.get("q")));
   if (path.startsWith("/movie/")) return safeRender(renderMovie(path.split("/")[2]));
@@ -2432,6 +3005,7 @@ function route() {
   if (path === "/timeline") return safeRender(renderTimeline());
   if (path === "/roadmap") return safeRender(renderRoadmap());
   if (path === "/characters" || path.startsWith("/character/")) {
+    window.hideGlobalSkeleton(true);
     location.hash = "#/home";
     return;
   }
@@ -2442,12 +3016,14 @@ function route() {
   if (path === "/shop") return safeRender(renderShop());
   if (path === "/contact") return safeRender(renderContact());
   if (path === "/verify" || path === "/verify-otp" || path === "/auth/verify") {
+    window.hideGlobalSkeleton(true);
     location.hash = "#/home";
     openAuthModal("verify", params.get("email") || "");
     return;
   }
   if (path === "/privacy") return safeRender(renderPrivacyPolicy());
   if (path === "/terms") return safeRender(renderTerms());
+  window.hideGlobalSkeleton(true);
   app.innerHTML = `<section class="section"><h1>Page not found</h1><a href="#/home" class="link">← Home</a></section>`;
 }
 
