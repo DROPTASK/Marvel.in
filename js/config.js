@@ -1,17 +1,15 @@
 /**
  * MARVEL INDIA — CLIENT CONFIGURATION
  * -----------------------------------
- * Configuration is dynamically supplied via server environment variables.
- * Do not save API keys in this file.
+ * Static public constants only.
+ * SUPABASE_URL, SUPABASE_ANON_KEY, and API keys are loaded strictly from environment variables via /api/config.
  */
 window.MARVEL_INDIA_CONFIG = Object.assign({
-  SUPABASE_URL: "",
-  SUPABASE_ANON_KEY: "",
-  TMDB_API_KEY: "",
-  OMDB_API_KEY: "",
-  WATCHMODE_API_KEY: "",
   TMDB_MARVEL_COMPANY_ID: 420,
   TMDB_IMAGE_BASE: "https://image.tmdb.org/t/p/w500",
   TMDB_BACKDROP_BASE: "https://image.tmdb.org/t/p/original",
-  AMAZON_AFFILIATE_TAG: "marvelindia09-21"
+  AMAZON_AFFILIATE_TAG: "marvelindia09-21",
+  CONTACT_EMAIL: "contact@marvelindia.in",
+  LEGAL_EMAIL: "legal@marvelindia.in"
 }, window.MARVEL_INDIA_CONFIG || {});
+

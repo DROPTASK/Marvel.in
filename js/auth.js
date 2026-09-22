@@ -12,6 +12,7 @@ const MI_AUTH = (() => {
   let cachedUser = null;
 
   async function init() {
+    await MI_SUPABASE.ensureReady?.();
     if (!MI_SUPABASE.ready) return null;
     const { data } = await sb().auth.getSession();
     cachedUser = data.session ? data.session.user : null;
@@ -30,7 +31,8 @@ const MI_AUTH = (() => {
   }
 
   async function signup(username, email, password) {
-    if (!MI_SUPABASE.ready) return { ok: false, error: "Supabase connection not configured in js/config.js. You can still explore the app in Guest Mode!" };
+    await MI_SUPABASE.ensureReady?.();
+    if (!MI_SUPABASE.ready) return { ok: false, error: "Supabase environment variables (SUPABASE_URL, SUPABASE_ANON_KEY) are not set. Please set them in your deployment environment variables." };
     if (!username || !email || !password) return { ok: false, error: "Username, email and password are all required." };
     const { data, error } = await sb().auth.signUp({
       email, password,
@@ -42,7 +44,8 @@ const MI_AUTH = (() => {
   }
 
   async function login(email, password) {
-    if (!MI_SUPABASE.ready) return { ok: false, error: "Supabase connection not configured in js/config.js. You can still explore the app in Guest Mode!" };
+    await MI_SUPABASE.ensureReady?.();
+    if (!MI_SUPABASE.ready) return { ok: false, error: "Supabase environment variables (SUPABASE_URL, SUPABASE_ANON_KEY) are not set. Please set them in your deployment environment variables." };
     const { data, error } = await sb().auth.signInWithPassword({ email, password });
     if (error) return { ok: false, error: error.message };
     cachedUser = data.user;
@@ -50,13 +53,15 @@ const MI_AUTH = (() => {
   }
 
   async function logout() {
+    await MI_SUPABASE.ensureReady?.();
     if (!MI_SUPABASE.ready) return;
     await sb().auth.signOut();
     cachedUser = null;
   }
 
   async function sendOtp(email, username) {
-    if (!MI_SUPABASE.ready) return { ok: false, error: "Supabase connection not configured in js/config.js." };
+    await MI_SUPABASE.ensureReady?.();
+    if (!MI_SUPABASE.ready) return { ok: false, error: "Supabase environment variables (SUPABASE_URL, SUPABASE_ANON_KEY) are not set in environment." };
     if (!email || !email.includes("@")) return { ok: false, error: "Please enter a valid email address." };
     const options = { shouldCreateUser: true };
     if (username && username.trim()) {
@@ -71,8 +76,9 @@ const MI_AUTH = (() => {
   }
 
   async function verifyOtp(email, token, type = "signup") {
+    await MI_SUPABASE.ensureReady?.();
     if (!MI_SUPABASE.ready) {
-      return { ok: false, error: "Supabase connection is not configured in js/config.js. Add your Supabase project credentials to send and verify real OTP codes." };
+      return { ok: false, error: "Supabase environment variables (SUPABASE_URL, SUPABASE_ANON_KEY) are not set in environment." };
     }
     const cleanToken = (token || "").replace(/\s+/g, "").trim();
     if (!cleanToken || cleanToken.length !== 6 || !/^\d{6}$/.test(cleanToken)) {
@@ -109,8 +115,9 @@ const MI_AUTH = (() => {
   }
 
   async function resendVerificationOtp(email, type = "signup") {
+    await MI_SUPABASE.ensureReady?.();
     if (!MI_SUPABASE.ready) {
-      return { ok: false, error: "Supabase connection is not configured in js/config.js." };
+      return { ok: false, error: "Supabase environment variables (SUPABASE_URL, SUPABASE_ANON_KEY) are not set." };
     }
     const cleanEmail = (email || "").trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes("@")) {

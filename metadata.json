@@ -1,6 +1,7 @@
 {
   "name": "Marvel India",
-  "description": "A Marvel-focused hub: search, watch-provider lookup, in-universe timeline, a Doomsday watch-plan roadmap, a community blog feed, and Amazon merch picks.",
+  "description": "A Marvel-focused hub: search, trailers & teasers, watch-provider lookup, in-universe timeline, Doomsday watch-plan roadmap, community blog, and curated Marvel merchandise.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
+

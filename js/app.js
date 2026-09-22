@@ -61,6 +61,9 @@ async function openNotificationsModal() {
   const userId = currentUserId();
   const profile = await MI_DB.getProfile(userId);
   const enabled = profile && profile.notifications_enabled;
+  if (!history.state || !history.state.miModal) {
+    history.pushState({ miModal: true }, "");
+  }
   document.getElementById("modal-root").innerHTML = `
     <div class="modal-backdrop" id="modal-backdrop">
       <div class="modal comic-panel">
@@ -85,12 +88,19 @@ function openAuthModal(defaultMode = "login", initialEmail = "") {
   const modalRoot = document.getElementById("modal-root");
   let currentResendTimer = null;
 
+  if (!history.state || !history.state.miModal) {
+    history.pushState({ miModal: true }, "");
+  }
+
   function closeModal() {
     if (currentResendTimer) {
       clearInterval(currentResendTimer);
       currentResendTimer = null;
     }
     modalRoot.innerHTML = "";
+    if (history.state && history.state.miModal) {
+      history.back();
+    }
   }
 
   function renderStandardAuth(mode = "login", prefillEmail = "", prefillUsername = "") {
@@ -123,9 +133,6 @@ function openAuthModal(defaultMode = "login", initialEmail = "") {
             <p class="form-error" id="auth-error"></p>
             <button type="submit" class="pill primary full" id="auth-submit-btn">${mode === "login" ? "Log in" : "Continue &rarr;"}</button>
           </form>
-          <div class="auth-verify-prompt">
-            Already have a confirmation code? <button type="button" id="modal-link-verify" class="link-btn" style="text-decoration:underline;color:var(--marvel-red);font-weight:700;">Enter OTP Code &rarr;</button>
-          </div>
           <p class="fine-print">Join India's Marvel community to sync watchlists, write reviews, and track release dates.</p>
         </div>
       </div>`;
@@ -137,11 +144,6 @@ function openAuthModal(defaultMode = "login", initialEmail = "") {
     const usernameInput = form.querySelector('[name="username"]');
     const emailInput = form.querySelector('[name="email"]');
     const errEl = document.getElementById("auth-error");
-
-    document.getElementById("modal-link-verify")?.addEventListener("click", () => {
-      const email = (emailInput?.value || "").trim().toLowerCase();
-      renderOtpStep(email, "");
-    });
 
     document.querySelectorAll(".tab").forEach(tabBtn => {
       tabBtn.onclick = () => {
@@ -453,7 +455,13 @@ function openAuthModal(defaultMode = "login", initialEmail = "") {
     renderStandardAuth(defaultMode, initialEmail);
   }
 }
-function closeModal() { document.getElementById("modal-root").innerHTML = ""; }
+function closeModal(syncHistory = true) {
+  const modalRoot = document.getElementById("modal-root");
+  if (modalRoot) modalRoot.innerHTML = "";
+  if (syncHistory && history.state && history.state.miModal) {
+    history.back();
+  }
+}
 
 function posterCard(item) {
   let poster = item.poster;
@@ -492,7 +500,8 @@ function posterCard(item) {
     </a>`;
 }
 
-// ---------------------------------------------------------------- NAVIGATION HISTORY & BACK BUTTON
+// ---------------------------------------------------------------- NAVIGATION HISTORY
+// On-screen back button removed per user directive; user's device back button (hardware back / browser back / swipe back) handles navigation.
 const _navHistory = [];
 function recordNav(hash) {
   const clean = hash || "#/home";
@@ -503,33 +512,15 @@ function recordNav(hash) {
 }
 
 window.marvelGoBack = function(fallbackHash = "#/home") {
-  if (_navHistory.length > 1) {
-    _navHistory.pop(); // remove current location
-    const prev = _navHistory.pop(); // get previous location
-    if (prev && prev !== location.hash) {
-      location.hash = prev;
-      return;
-    }
-  }
   if (window.history.length > 1) {
     window.history.back();
-    setTimeout(() => {
-      if (!location.hash || location.hash === "#" || location.hash === "#/") {
-        location.hash = fallbackHash || "#/home";
-      }
-    }, 200);
     return;
   }
   location.hash = fallbackHash || "#/home";
 };
 
-function backButton(fallbackHash = "#/home", label = "Back") {
-  return `
-    <div class="page-action-bar">
-      <a href="${fallbackHash}" class="back-btn" onclick="event.preventDefault(); window.marvelGoBack('${fallbackHash}');" aria-label="${esc(label)}">
-        <span class="back-arrow">&larr;</span> ${esc(label)}
-      </a>
-    </div>`;
+function backButton() {
+  return "";
 }
 
 function renderPrivacyPolicy() {
@@ -560,7 +551,7 @@ function renderPrivacyPolicy() {
         <p>We do not sell, rent, or trade your personal information to third parties. Under applicable privacy regulations (including India's Digital Personal Data Protection Act and GDPR principles), you have the right to request access to, update, or delete your account information at any time by contacting us.</p>
 
         <h2>4. Contact Us</h2>
-        <p>If you have questions regarding this Privacy Policy or data requests, please reach out to the community team at <a href="mailto:contact@marvelindia.in" class="link">contact@marvelindia.in</a>.</p>
+        <p>If you have questions regarding this Privacy Policy or data requests, please reach out to our privacy officer at <a href="mailto:legal@marvelindia.in" class="link">legal@marvelindia.in</a> or for community inquiries write to <a href="mailto:contact@marvelindia.in" class="link">contact@marvelindia.in</a>.</p>
         
         <div style="margin-top:28px;">
           <a href="#/home" class="pill primary">← Return to Home</a>
@@ -598,7 +589,10 @@ function renderTerms() {
         <h2>4. Limitation of Liability</h2>
         <p>Release dates, streaming availability on Disney+ Hotstar or other Indian OTT platforms, and runtime listings are curated based on official studio announcements and public metadata APIs. Marvel India makes no guarantees regarding the timing or accuracy of third-party theatrical schedules.</p>
 
-        <div style="margin-top:28px;">
+        <h2>5. Inquiries &amp; Notice</h2>
+        <p>For questions, DMCA copyright notices, or legal compliance, contact us directly at <a href="mailto:legal@marvelindia.in" class="link">legal@marvelindia.in</a>. For editorial and community inquiries, contact <a href="mailto:contact@marvelindia.in" class="link">contact@marvelindia.in</a>.</p>
+
+        <div style="margin-top:28px; display:flex; gap:12px; flex-wrap:wrap;">
           <a href="#/home" class="pill primary">← Return to Home</a>
         </div>
       </div>
@@ -760,20 +754,67 @@ async function renderHome() {
     <!-- MOVIES SECTION -->
     <section class="section">
       <div class="section-head">
-        <h2>Marvel, freshly reeled in</h2>
-        <a href="#/search" class="link">Search everything →</a>
+        <h2>Featured Releases</h2>
+        <a href="#/search" class="link">Search all titles →</a>
       </div>
       <div class="grid">${enriched.map(posterCard).join("")}</div>
     </section>
 
+    <!-- OFFICIAL TRAILERS & TEASERS -->
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Official Trailers &amp; Teasers</h2>
+          <p class="muted" style="margin:2px 0 0;">Watch high-definition first looks, San Diego Comic-Con reveals, and official teasers.</p>
+        </div>
+        <a href="#/trailers" class="link">All Trailers &rarr;</a>
+      </div>
+      <div class="trailers-grid">
+        ${(window.MI_TRAILERS || []).slice(0, 3).map(homeTrailerCard).join("")}
+      </div>
+    </section>
+
     <section class="section quicklinks">
+      <a class="quick comic-panel" href="#/trailers"><h3>Trailers</h3><p>Official 4K teasers and Marvel Studios reveals.</p></a>
       <a class="quick comic-panel" href="#/timeline"><h3>MCU Timeline</h3><p>The story in chronological order, movie by movie.</p></a>
       <a class="quick comic-panel" href="#/roadmap"><h3>Watch Plan</h3><p>MCU release schedule and complete phase checklist.</p></a>
       <a class="quick comic-panel" href="#/blog"><h3>Blog</h3><p>Fan theories, reviews and news from the community.</p></a>
-      <a class="quick comic-panel" href="#/shop"><h3>Shop</h3><p>Merch we love, via Amazon.</p></a>
+      <a class="quick comic-panel" href="#/shop"><h3>Shop</h3><p>Authentic Marvel figures, comics &amp; apparel.</p></a>
     </section>
   `;
   startCountdown(doomRelease);
+
+  // Wire trailer cards click
+  app.querySelectorAll(".trailer-card[data-yt]").forEach(card => {
+    card.addEventListener("click", () => {
+      openVideoModal(card.dataset.yt, card.dataset.title, card.dataset.movie);
+    });
+  });
+}
+
+function homeTrailerCard(t) {
+  return `
+    <div class="trailer-card comic-panel" data-yt="${esc(t.youtubeId)}" data-title="${esc(t.title)}" data-movie="${esc(t.movieTitle)}" style="cursor:pointer;">
+      <div class="trailer-thumb-wrap">
+        <img src="https://img.youtube.com/vi/${esc(t.youtubeId)}/hqdefault.jpg" alt="${esc(t.title)}" loading="lazy">
+        <div class="play-btn-overlay">
+          <div class="play-circle">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          </div>
+        </div>
+        <span class="trailer-badge">${esc(t.categoryLabel || t.phase || "Official Footage")}</span>
+        ${t.duration ? `<span class="trailer-duration">${esc(t.duration)}</span>` : ""}
+      </div>
+      <div class="trailer-body">
+        <span class="trailer-meta">${esc(t.movieTitle)} &bull; ${esc(t.quality || "4K UHD")}</span>
+        <h3 class="trailer-title">${esc(t.title)}</h3>
+        <p class="trailer-blurb">${esc(t.blurb)}</p>
+        <div class="trailer-actions">
+          <button type="button" class="pill primary mini-pill watch-now-btn" style="width:100%;">▶ Watch Trailer</button>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function homeBlogFeedCard(p) {
@@ -870,13 +911,11 @@ async function renderSearch(query) {
   }
 
   app.innerHTML = `
-    ${backButton("#/home", "Back to Home")}
     <section class="section search-section">
       <div class="search-hero comic-panel">
         <div class="search-hero-head">
-          <span class="search-eyebrow">MARVEL ARCHIVES &middot; MULTIVERSE SEARCH</span>
-          <h1>Search Marvel Movies &amp; Series</h1>
-          <p class="search-sub">Explore across 75+ MCU blockbusters, Disney+ streaming series, X-Men sagas, and Phase 6 releases.</p>
+          <h1>Search Movies &amp; Series</h1>
+          <p class="search-sub">Explore Marvel films, Disney+ series, and upcoming releases.</p>
         </div>
 
         <form id="search-form" class="search-bar-unified">
@@ -1265,9 +1304,38 @@ async function renderMovie(id) {
   const comments = await MI_DB.getComments("movie", id);
   const suggestionsHtml = await renderDetailSuggestions(id, null);
 
-  app.innerHTML = `
-    ${backButton("#/roadmap", "Back to movies")}
+  // Collect movie trailers from TMDB and curated list
+  const movieVideos = [];
+  if (tmdbFull && tmdbFull.videos && tmdbFull.videos.results) {
+    tmdbFull.videos.results
+      .filter(v => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"))
+      .forEach(v => {
+        movieVideos.push({
+          title: v.name,
+          youtubeId: v.key,
+          duration: "HD",
+          categoryLabel: v.type
+        });
+      });
+  }
+  const normKey = s => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const currentNorm = normKey(title);
+  (window.MI_TRAILERS || []).forEach(t => {
+    const tMovieNorm = normKey(t.movieTitle);
+    const tTitleNorm = normKey(t.title);
+    if (tMovieNorm === currentNorm || currentNorm.includes(tMovieNorm) || tTitleNorm.includes(currentNorm)) {
+      if (!movieVideos.some(mv => mv.youtubeId === t.youtubeId)) {
+        movieVideos.unshift({
+          title: t.title,
+          youtubeId: t.youtubeId,
+          duration: t.duration || "4K UHD",
+          categoryLabel: t.categoryLabel || "Official Trailer"
+        });
+      }
+    }
+  });
 
+  app.innerHTML = `
     <section class="detail" style="${backdrop ? `--hero-bg:url('${backdrop}')` : ""}">
       <div class="detail-inner comic-panel">
         <div class="detail-copy">
@@ -1295,6 +1363,42 @@ async function renderMovie(id) {
       <h2>Where to watch</h2>
       <div id="watch-providers">${renderWatchProviders(tmdbFull, watchSources)}</div>
     </section>
+
+    ${movieVideos.length ? `
+    <section class="section">
+      <div class="section-head">
+        <h2>Official Trailers &amp; Footage</h2>
+        <span class="muted">${movieVideos.length} Video${movieVideos.length > 1 ? "s" : ""} Available</span>
+      </div>
+      <div class="trailers-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+        ${movieVideos.slice(0, 4).map(v => `
+          <div class="trailer-card comic-panel" data-yt="${esc(v.youtubeId)}" data-title="${esc(v.title)}" data-movie="${esc(title)}" style="cursor:pointer;">
+            <div class="trailer-thumb-wrap">
+              <img src="https://img.youtube.com/vi/${esc(v.youtubeId)}/hqdefault.jpg" alt="${esc(v.title)}" loading="lazy">
+              <div class="play-btn-overlay">
+                <div class="play-circle">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                </div>
+              </div>
+              <span class="trailer-badge">${esc(v.categoryLabel)}</span>
+              ${v.duration ? `<span class="trailer-duration">${esc(v.duration)}</span>` : ""}
+            </div>
+            <div class="trailer-body">
+              <h3 class="trailer-title" style="font-size:1.1rem;margin-bottom:8px;">${esc(v.title)}</h3>
+              <div class="trailer-actions">
+                <button type="button" class="watch-now-btn" style="flex:1;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block; vertical-align:-1px; margin-right:4px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                  Watch Video
+                </button>
+                <a href="https://www.youtube.com/watch?v=${encodeURIComponent(v.youtubeId)}" target="_blank" rel="noopener" class="ext-yt-btn" title="Open directly on YouTube" onclick="event.stopPropagation();">
+                  YouTube ↗
+                </a>
+              </div>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </section>` : ""}
 
     ${cast.length ? `
     <section class="section">
@@ -1336,6 +1440,13 @@ async function renderMovie(id) {
     if (!result.ok) { document.getElementById("comment-error").textContent = result.error; return; }
     renderMovie(id);
   };
+
+  // Wire movie trailer cards click
+  app.querySelectorAll(".trailer-card[data-yt]").forEach(card => {
+    card.addEventListener("click", () => {
+      openVideoModal(card.dataset.yt, card.dataset.title, card.dataset.movie);
+    });
+  });
 }
 
 async function watchmodeSourcesForImdb(imdbId) {
@@ -1385,7 +1496,6 @@ async function renderTimeline() {
   }
 
   app.innerHTML = `
-    ${backButton("#/home", "Back to Home")}
     <section class="section timeline-section">
       <h1>Marvel Universe Timeline</h1>
       <p class="muted">In-universe chronological order — spanning the Sacred MCU Timeline, Fox Mutant Era, and Multiverse TVA incursions.</p>
@@ -1466,10 +1576,9 @@ async function renderRoadmap() {
   const minutesPerDayMust = daysLeft ? Math.ceil(remainingMinutesMustWatch / daysLeft) : 0;
 
   app.innerHTML = `
-    ${backButton("#/home", "Back to Home")}
     <section class="section">
       <h1>Marvel Roadmap &amp; Checklist</h1>
-      <p class="muted">Every MCU film, Disney+ web series, and X-Men project synced live from the database. Check off what you've watched — saved to your browser and account.</p>
+      <p class="muted">Every MCU film, Disney+ series, and Marvel project in chronological release order. Track your progress as you watch.</p>
 
       <div class="watch-plan comic-panel">
         <h2>Doomsday Watch Plan</h2>
@@ -1551,7 +1660,6 @@ async function renderWishlist() {
   app.innerHTML = `<div class="loading">Loading your wishlist…</div>`;
   const list = await MI_DB.getWishlist(userId);
   app.innerHTML = `
-    ${backButton("#/home", "Back to Home")}
     <section class="section">
       <h1>${esc(currentUsername())}'s wishlist</h1>
       ${list.length ? `<div class="grid">${list.map(i => posterCard({ id: i.item_id, title: i.title, year: "", poster: i.poster_url })).join("")}</div>`
@@ -1565,7 +1673,6 @@ async function renderBlogList() {
   const posts = await MI_DB.getBlogPosts();
   const userId = currentUserId();
   app.innerHTML = `
-    ${backButton("#/home", "Back to Home")}
     <section class="section">
       <div class="section-head">
         <h1>Blog</h1>
@@ -1591,12 +1698,11 @@ function blogCard(p) {
 async function renderBlogPost(slug) {
   app.innerHTML = `<div class="loading">Loading post…</div>`;
   const post = await MI_DB.getBlogPost(slug);
-  if (!post) { app.innerHTML = `<section class="section">${backButton("#/blog", "Back to Blog")}<h1>Post not found</h1></section>`; return; }
+  if (!post) { app.innerHTML = `<section class="section"><h1>Post not found</h1></section>`; return; }
   const userId = currentUserId();
   const comments = await MI_DB.getBlogComments(post.id);
   const suggestionsHtml = await renderDetailSuggestions(null, slug);
   app.innerHTML = `
-    ${backButton("#/blog", "Back to Blog")}
     <section class="section">
       ${post.cover_image_url ? `<div class="blog-detail-cover" style="background-image:url('${post.cover_image_url}')"></div>` : ""}
       <h1>${esc(post.title)}</h1>
@@ -1628,7 +1734,6 @@ function renderNewBlogForm() {
   const userId = currentUserId();
   if (!userId) { openAuthModal(); location.hash = "#/blog"; return; }
   app.innerHTML = `
-    ${backButton("#/blog", "Back to Blog")}
     <section class="section">
       <h1>Write a post</h1>
       <form id="new-post-form" class="stacked-form comic-panel">
@@ -1650,36 +1755,569 @@ function renderNewBlogForm() {
   };
 }
 
-// ---------------------------------------------------------------- SHOP (Amazon affiliate)
-async function renderShop() {
-  app.innerHTML = `<div class="loading">Loading the shop…</div>`;
-  const products = await MI_DB.getAffiliateProducts();
-  const tag = window.MARVEL_INDIA_CONFIG.AMAZON_AFFILIATE_TAG;
-  app.innerHTML = `
-    ${backButton("#/home", "Back to Home")}
-    <section class="section">
-      <h1>Shop</h1>
-      <p class="muted">Curated Marvel merch. As an Amazon Associate, Marvel India earns from qualifying purchases made through these links, at no extra cost to you.</p>
-      <div class="shop-grid">
-        ${products.map(p => {
-          const url = new URL(p.amazon_url);
-          if (tag && tag !== "your-affiliate-tag-21") url.searchParams.set("tag", tag);
-          return `
-          <a class="shop-card comic-panel" href="${url.toString()}" target="_blank" rel="noopener sponsored">
-            <div class="card-poster" style="background-image:url('${p.image_url || "assets/placeholder-poster.svg"}')"></div>
-            <div class="card-body">
-              <h3>${esc(p.title)}</h3>
-              <p class="muted">${esc(p.category || "")} ${p.price_label ? "· " + esc(p.price_label) : ""}</p>
-              <p>${esc(p.blurb || "")}</p>
-              <span class="pill primary full">View on Amazon ↗</span>
-            </div>
-          </a>`;
-        }).join("")}
+// ---------------------------------------------------------------- VIDEO MODAL
+let currentModalEscHandler = null;
+
+function openVideoModal(youtubeId, title, movieTitle) {
+  closeVideoModal();
+  const backdrop = document.createElement("div");
+  backdrop.id = "video-player-modal-backdrop";
+  backdrop.className = "video-modal-backdrop";
+  backdrop.innerHTML = `
+    <div class="video-modal comic-panel">
+      <div class="video-modal-header">
+        <div>
+          <h3 class="video-modal-title">${esc(title || "Official Trailer")}</h3>
+          ${movieTitle ? `<span class="video-modal-sub">${esc(movieTitle)} &bull; Official Marvel Studios Footage</span>` : ""}
+        </div>
+        <button class="video-modal-close-btn" id="video-modal-close-btn" aria-label="Close video player">&times;</button>
       </div>
-    </section>`;
+      <div class="video-responsive-wrap">
+        <iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtubeId)}?autoplay=1&rel=0&modestbranding=1" 
+          title="${esc(title || "Marvel Trailer")}" 
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+          allowfullscreen>
+        </iframe>
+      </div>
+      <div class="video-modal-footer">
+        <span class="muted" style="font-size:0.85rem;">Streaming official Marvel Studios HD footage</span>
+        <a href="https://www.youtube.com/watch?v=${encodeURIComponent(youtubeId)}" target="_blank" rel="noopener" class="ext-yt-btn" style="padding:5px 12px;font-size:0.88rem;">Watch on YouTube ↗</a>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  document.body.style.overflow = "hidden";
+
+  backdrop.addEventListener("click", (e) => {
+    if (e.target === backdrop) closeVideoModal();
+  });
+  document.getElementById("video-modal-close-btn")?.addEventListener("click", closeVideoModal);
+
+  currentModalEscHandler = (e) => {
+    if (e.key === "Escape") closeVideoModal();
+  };
+  window.addEventListener("keydown", currentModalEscHandler);
 }
 
-// Note: OTP verification is handled seamlessly inside the authentication modal (openAuthModal).
+function closeVideoModal() {
+  if (currentModalEscHandler) {
+    window.removeEventListener("keydown", currentModalEscHandler);
+    currentModalEscHandler = null;
+  }
+  const existing = document.getElementById("video-player-modal-backdrop");
+  if (existing) existing.remove();
+  document.body.style.overflow = "";
+}
+
+// ---------------------------------------------------------------- TRAILERS PORTAL
+function renderTrailers(initialCat) {
+  const allTrailers = window.MI_TRAILERS || [];
+  let activeCat = initialCat || "all";
+  let searchQuery = "";
+
+  const multiverseCount = allTrailers.filter(t => t.category === "multiverse").length;
+  const infinityCount = allTrailers.filter(t => t.category === "infinity-saga").length;
+  const seriesCount = allTrailers.filter(t => t.category === "series").length;
+
+  function getFilteredTrailers() {
+    let list = [...allTrailers];
+    if (activeCat !== "all") {
+      list = list.filter(t => t.category === activeCat);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter(t => 
+        (t.title || "").toLowerCase().includes(q) ||
+        (t.movieTitle || "").toLowerCase().includes(q) ||
+        (t.blurb || "").toLowerCase().includes(q) ||
+        (t.phase || "").toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }
+
+  function getListHtml() {
+    const items = getFilteredTrailers();
+    if (!items.length) {
+      return `
+        <div class="comic-panel" style="grid-column: 1 / -1; padding: 40px 20px; text-align: center; background: #ffffff;">
+          <h3 style="margin-bottom:8px;">No trailers found matching "${esc(searchQuery)}"</h3>
+          <p class="muted" style="margin-bottom:16px;">Try searching for "Endgame", "Thunderbolts", "Infinity War", "Spider-Man", or "Loki".</p>
+          <button type="button" class="trailers-reset-btn" id="trailer-reset-btn">Reset Filters</button>
+        </div>`;
+    }
+    return items.map(t => `
+      <div class="trailer-card comic-panel" data-yt="${esc(t.youtubeId)}" data-title="${esc(t.title)}" data-movie="${esc(t.movieTitle)}" style="cursor:pointer;">
+        <div class="trailer-thumb-wrap">
+          <img src="https://img.youtube.com/vi/${esc(t.youtubeId)}/hqdefault.jpg" alt="${esc(t.title)}" loading="lazy">
+          <div class="play-btn-overlay">
+            <div class="play-circle">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            </div>
+          </div>
+          <span class="trailer-badge">${esc(t.categoryLabel || t.phase || "Official Footage")}</span>
+          ${t.duration ? `<span class="trailer-duration">${esc(t.duration)}</span>` : ""}
+        </div>
+        <div class="trailer-body">
+          <span class="trailer-meta">${esc(t.movieTitle)} &bull; ${esc(t.quality || "4K UHD")} &bull; ${esc(t.channel || "Marvel Studios")}</span>
+          <h3 class="trailer-title">${esc(t.title)}</h3>
+          <p class="trailer-blurb">${esc(t.blurb)}</p>
+          <div class="trailer-actions">
+            <button type="button" class="watch-now-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block; vertical-align:-1px; margin-right:4px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              Watch Trailer
+            </button>
+            <a href="https://www.youtube.com/watch?v=${encodeURIComponent(t.youtubeId)}" target="_blank" rel="noopener" class="ext-yt-btn" title="Open directly on YouTube" onclick="event.stopPropagation();">
+              YouTube ↗
+            </a>
+          </div>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  app.innerHTML = `
+    <section class="section">
+      <div class="trailers-header-card comic-panel">
+        <h1>Official Marvel Trailers &amp; Teasers</h1>
+        <p>Stream high-definition teasers, official Marvel Studios trailers, and Comic-Con footage with zero clutter.</p>
+        
+        <div class="trailers-search-box">
+          <div class="trailers-search-inner">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="trailers-live-search" placeholder="Filter trailers by movie, hero, or saga..." value="${esc(searchQuery)}">
+            <button type="button" class="trailers-search-clear" id="trailers-search-clear" style="display:none;" aria-label="Clear search">&times;</button>
+          </div>
+        </div>
+
+        <div class="trailers-filter-bar" id="trailers-filter-bar">
+          <button type="button" class="trailers-filter-btn ${activeCat === "all" ? "active" : ""}" data-cat="all">All Trailers (${allTrailers.length})</button>
+          <button type="button" class="trailers-filter-btn ${activeCat === "multiverse" ? "active" : ""}" data-cat="multiverse">Multiverse &amp; Phase 5 (${multiverseCount})</button>
+          <button type="button" class="trailers-filter-btn ${activeCat === "infinity-saga" ? "active" : ""}" data-cat="infinity-saga">Infinity Saga Classics (${infinityCount})</button>
+          <button type="button" class="trailers-filter-btn ${activeCat === "series" ? "active" : ""}" data-cat="series">Disney+ Series &amp; Animation (${seriesCount})</button>
+        </div>
+      </div>
+
+      <div class="trailers-grid" id="trailers-container">
+        ${getListHtml()}
+      </div>
+    </section>
+  `;
+
+  function refreshGrid() {
+    const container = document.getElementById("trailers-container");
+    if (container) {
+      container.innerHTML = getListHtml();
+      wireTrailerCards();
+    }
+  }
+
+  function wireTrailerCards() {
+    const container = document.getElementById("trailers-container");
+    if (!container) return;
+    container.querySelectorAll(".trailer-card[data-yt]").forEach(card => {
+      card.addEventListener("click", () => {
+        openVideoModal(card.dataset.yt, card.dataset.title, card.dataset.movie);
+      });
+    });
+    document.getElementById("trailer-reset-btn")?.addEventListener("click", () => {
+      activeCat = "all";
+      searchQuery = "";
+      const input = document.getElementById("trailers-live-search");
+      if (input) input.value = "";
+      const clearBtn = document.getElementById("trailers-search-clear");
+      if (clearBtn) clearBtn.style.display = "none";
+      document.querySelectorAll(".trailers-filter-bar .trailers-filter-btn").forEach(b => b.classList.toggle("active", b.dataset.cat === "all"));
+      refreshGrid();
+    });
+  }
+
+  // Filter bar buttons
+  const filterBar = document.getElementById("trailers-filter-bar");
+  filterBar?.querySelectorAll(".trailers-filter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      activeCat = btn.dataset.cat;
+      filterBar.querySelectorAll(".trailers-filter-btn").forEach(b => b.classList.toggle("active", b === btn));
+      refreshGrid();
+    });
+  });
+
+  // Live search input
+  const searchInput = document.getElementById("trailers-live-search");
+  const clearBtn = document.getElementById("trailers-search-clear");
+  searchInput?.addEventListener("input", (e) => {
+    searchQuery = e.target.value;
+    if (clearBtn) clearBtn.style.display = searchQuery ? "block" : "none";
+    refreshGrid();
+  });
+  clearBtn?.addEventListener("click", () => {
+    searchQuery = "";
+    if (searchInput) searchInput.value = "";
+    clearBtn.style.display = "none";
+    refreshGrid();
+  });
+
+  wireTrailerCards();
+}
+
+// ---------------------------------------------------------------- CONTACT & DISPATCH
+function renderContact() {
+  const cfg = window.MARVEL_INDIA_CONFIG || {};
+  const contactEmail = cfg.CONTACT_EMAIL || "contact@marvelindia.in";
+  const legalEmail = cfg.LEGAL_EMAIL || "legal@marvelindia.in";
+
+  app.innerHTML = `
+    <div class="contact-container section">
+      <div class="contact-card comic-panel">
+        <div class="contact-hero-banner">
+          <h1>Official Communications</h1>
+          <p>Official communication channels for the Marvel India community. Direct inquiries to the appropriate department below.</p>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:14px; margin-bottom: 24px;">
+          <div class="contact-highlight-box" style="margin-bottom:0; flex-direction:column; align-items:flex-start;">
+            <div>
+              <span class="muted" style="font-family:'Barlow Condensed',sans-serif;font-size:0.95rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;display:block;margin-bottom:4px;">Editorial &amp; Community Inquiries</span>
+              <div class="contact-email-addr">${contactEmail}</div>
+            </div>
+            <div class="contact-email-actions" style="margin-top:10px; width:100%;">
+              <button type="button" class="pill primary mini-pill" id="copy-contact-btn" data-email="${contactEmail}">Copy Email</button>
+              <a href="mailto:${contactEmail}?subject=Marvel%20India%20Community%20Inquiry" class="pill ghost mini-pill">Send Mail ↗</a>
+            </div>
+          </div>
+
+          <div class="contact-highlight-box" style="margin-bottom:0; flex-direction:column; align-items:flex-start;">
+            <div>
+              <span class="muted" style="font-family:'Barlow Condensed',sans-serif;font-size:0.95rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;display:block;margin-bottom:4px;">Legal, DMCA &amp; Compliance</span>
+              <div class="contact-email-addr" style="color:var(--ink);">${legalEmail}</div>
+            </div>
+            <div class="contact-email-actions" style="margin-top:10px; width:100%;">
+              <button type="button" class="pill primary mini-pill" id="copy-legal-btn" data-email="${legalEmail}">Copy Email</button>
+              <a href="mailto:${legalEmail}?subject=Marvel%20India%20Legal%20Inquiry" class="pill ghost mini-pill">Send Mail ↗</a>
+            </div>
+          </div>
+        </div>
+
+        <h2 style="margin-bottom:14px;">Direct Mail Dispatch</h2>
+        <form id="contact-inquiry-form" class="contact-form-grid">
+          <div class="contact-form-row">
+            <div class="contact-field">
+              <label for="contact-name">Your Name</label>
+              <input type="text" id="contact-name" name="name" required placeholder="e.g. Peter Parker">
+            </div>
+            <div class="contact-field">
+              <label for="contact-recipient">Send To Department</label>
+              <select id="contact-recipient" name="recipient">
+                <option value="contact@marvelindia.in">General &amp; Community (contact@marvelindia.in)</option>
+                <option value="legal@marvelindia.in">Legal &amp; Compliance (legal@marvelindia.in)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="contact-field">
+            <label for="contact-category">Topic / Inquiry Type</label>
+            <select id="contact-category" name="category">
+              <option value="Community Dispatch / Fan Theory">Community Dispatch / Fan Theory</option>
+              <option value="Merchandise Listing / Product Tip">Merchandise Listing / Product Tip</option>
+              <option value="Roadmap / Watch Plan Feedback">Roadmap / Watch Plan Feedback</option>
+              <option value="Bug Report / Site Performance">Bug Report / Site Performance</option>
+              <option value="DMCA / Copyright / Fair Use Notice">DMCA / Copyright / Fair Use Notice</option>
+              <option value="Official Partnership &amp; Press">Official Partnership &amp; Press</option>
+            </select>
+          </div>
+
+          <div class="contact-field">
+            <label for="contact-subject">Subject</label>
+            <input type="text" id="contact-subject" name="subject" required placeholder="What is your message regarding?">
+          </div>
+
+          <div class="contact-field">
+            <label for="contact-message">Message</label>
+            <textarea id="contact-message" name="message" rows="5" required placeholder="Write your message here..."></textarea>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-top:8px;">
+            <button type="submit" class="pill primary">Send via Email Client ↗</button>
+            <span class="muted" style="font-size:0.85rem;" id="contact-dest-hint">Pre-addresses to contact@marvelindia.in</span>
+          </div>
+          <p id="contact-status-msg" style="margin:8px 0 0; font-family:'Barlow Condensed',sans-serif; font-size:1.05rem; font-weight:700; color:#1b5e20; min-height:1.2em;"></p>
+        </form>
+      </div>
+    </div>
+  `;
+
+  const setupCopyBtn = (btnId, email) => {
+    document.getElementById(btnId)?.addEventListener("click", () => {
+      navigator.clipboard.writeText(email).then(() => {
+        const btn = document.getElementById(btnId);
+        if (btn) {
+          const old = btn.textContent;
+          btn.textContent = "✓ Copied!";
+          btn.classList.add("gold");
+          setTimeout(() => {
+            btn.textContent = old;
+            btn.classList.remove("gold");
+          }, 2000);
+        }
+      }).catch(() => {
+        prompt("Copy email address:", email);
+      });
+    });
+  };
+
+  setupCopyBtn("copy-contact-btn", contactEmail);
+  setupCopyBtn("copy-legal-btn", legalEmail);
+
+  const recipientSelect = document.getElementById("contact-recipient");
+  const destHint = document.getElementById("contact-dest-hint");
+  recipientSelect?.addEventListener("change", () => {
+    if (destHint) {
+      destHint.textContent = `Pre-addresses to ${recipientSelect.value}`;
+    }
+  });
+
+  document.getElementById("contact-inquiry-form")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const targetEmail = fd.get("recipient") || contactEmail;
+    const name = fd.get("name") || "";
+    const cat = fd.get("category") || "General";
+    const sub = fd.get("subject") || "Marvel India Message";
+    const msg = fd.get("message") || "";
+
+    const mailSubject = encodeURIComponent(`[Marvel India: ${cat}] ${sub}`);
+    const mailBody = encodeURIComponent(`Name: ${name}\nCategory: ${cat}\nDepartment: ${targetEmail}\n\nMessage:\n${msg}`);
+    const mailtoUrl = `mailto:${targetEmail}?subject=${mailSubject}&body=${mailBody}`;
+
+    const statusEl = document.getElementById("contact-status-msg");
+    if (statusEl) {
+      statusEl.textContent = `✓ Opening your email client addressed to ${targetEmail}...`;
+    }
+    window.location.href = mailtoUrl;
+  });
+}
+
+// ---------------------------------------------------------------- SHOP (Amazon affiliate & Merchandise)
+async function renderShop() {
+  app.innerHTML = `<div class="loading">Loading curated Marvel merchandise…</div>`;
+  const rawProducts = await MI_DB.getAffiliateProducts();
+  const tag = window.MARVEL_INDIA_CONFIG.AMAZON_AFFILIATE_TAG;
+
+  let activeCategory = "all";
+  let activeSearch = "";
+  let activeSort = "featured";
+
+  function getFilteredAndSorted() {
+    let list = [...rawProducts];
+    if (activeCategory !== "all") {
+      list = list.filter(p => (p.category || "").toLowerCase() === activeCategory.toLowerCase());
+    }
+    if (activeSearch.trim()) {
+      const q = activeSearch.trim().toLowerCase();
+      list = list.filter(p => 
+        (p.title || "").toLowerCase().includes(q) ||
+        (p.blurb || "").toLowerCase().includes(q) ||
+        (p.category || "").toLowerCase().includes(q) ||
+        (p.tag || "").toLowerCase().includes(q)
+      );
+    }
+    if (activeSort === "price-asc") {
+      list.sort((a, b) => (a.price_num || 0) - (b.price_num || 0));
+    } else if (activeSort === "price-desc") {
+      list.sort((a, b) => (b.price_num || 0) - (a.price_num || 0));
+    } else if (activeSort === "rating") {
+      list.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    } else if (activeSort === "discount") {
+      list.sort((a, b) => parseInt(b.discount_percent || "0", 10) - parseInt(a.discount_percent || "0", 10));
+    }
+    return list;
+  }
+
+  function getProductsGridHtml() {
+    const items = getFilteredAndSorted();
+    if (!items.length) {
+      return `
+        <div class="comic-panel" style="grid-column: 1 / -1; padding: 48px 24px; text-align: center; background: #ffffff;">
+          <h3 style="margin-bottom: 8px;">No merchandise matches found</h3>
+          <p class="muted" style="margin-bottom: 20px;">Try searching for "Iron Man", "Omnibus", "Action Figure", or reset filters.</p>
+          <button type="button" class="pill primary" id="shop-reset-btn">Reset All Filters</button>
+        </div>`;
+    }
+    return items.map(p => {
+      let productUrl = p.amazon_url;
+      try {
+        const u = new URL(p.amazon_url);
+        if (tag && tag !== "your-affiliate-tag-21") {
+          u.searchParams.set("tag", tag);
+        }
+        productUrl = u.toString();
+      } catch (e) {}
+
+      const fullStars = Math.floor(p.rating || 5);
+      const halfStar = (p.rating || 5) % 1 >= 0.5 ? "★" : "";
+      const stars = "★".repeat(fullStars) + halfStar;
+
+      return `
+        <div class="shop-card-v2 comic-panel" id="product-${esc(p.id)}">
+          ${p.tag ? `<span class="shop-card-badge">${esc(p.tag)}</span>` : ""}
+          <a href="${productUrl}" target="_blank" rel="noopener sponsored" class="shop-img-box" tabindex="-1" aria-hidden="true">
+            <img src="${p.image_url || "assets/placeholder-poster.svg"}" alt="${esc(p.title)}" loading="lazy" onerror="this.onerror=null;this.src='assets/placeholder-poster.svg'">
+          </a>
+          <div class="shop-card-content">
+            <span class="shop-cat-label">${esc(p.category || "Marvel Merch")}</span>
+            <h3 class="shop-product-title">
+              <a href="${productUrl}" target="_blank" rel="noopener sponsored" style="text-decoration:none;color:inherit;">${esc(p.title)}</a>
+            </h3>
+            
+            <div class="shop-rating-row">
+              <span class="shop-stars">${stars}</span>
+              <span style="font-weight:700;">${p.rating ? p.rating.toFixed(1) : "4.8"}</span>
+              <span class="muted">(${p.review_count ? p.review_count.toLocaleString() : "1,200"} reviews)</span>
+            </div>
+
+            <div class="shop-price-box">
+              <span class="shop-price-curr">${esc(p.price_label || "₹1,999")}</span>
+              ${p.mrp_label ? `<span class="shop-price-mrp">${esc(p.mrp_label)}</span>` : ""}
+              ${p.discount_percent ? `<span class="shop-discount-pill">${esc(p.discount_percent)}</span>` : ""}
+            </div>
+
+            ${p.prime ? `
+            <div class="shop-prime-row">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+              <span>Prime Next-Day Delivery eligible</span>
+            </div>` : ""}
+
+            <p class="shop-card-blurb">${esc(p.blurb || "")}</p>
+
+            <a class="pill primary full shop-buy-btn" href="${productUrl}" target="_blank" rel="noopener sponsored">
+              Buy on Amazon ↗
+            </a>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  app.innerHTML = `
+    <section class="section">
+      <div class="shop-hero-card comic-panel">
+        <div class="shop-hero-banner">
+          <h1>Marvel India Merchandise &amp; Collectibles</h1>
+          <p>Hand-picked, collector-grade Marvel figures, deluxe graphic novel omnibuses, wearable apparel, and life-size prop replicas via Amazon India.</p>
+        </div>
+
+        <div class="shop-trust-badges">
+          <div class="shop-trust-item">
+            <span class="shop-trust-icon">🛡️</span>
+            <span>Verified Official Licenses</span>
+          </div>
+          <div class="shop-trust-item">
+            <span class="shop-trust-icon">🚚</span>
+            <span>Amazon India Prime Fast Delivery</span>
+          </div>
+          <div class="shop-trust-item">
+            <span class="shop-trust-icon">🏷️</span>
+            <span>Real-time Pricing &amp; Deal Tracking</span>
+          </div>
+        </div>
+
+        <div class="shop-controls-bar">
+          <div class="shop-search-inner">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="shop-live-search" placeholder="Search figures, hoodies, comics..." value="${esc(activeSearch)}">
+            <button type="button" class="shop-search-clear" id="shop-search-clear" style="display:${activeSearch ? "block" : "none"};" aria-label="Clear search">&times;</button>
+          </div>
+
+          <div class="shop-sort-wrap">
+            <label for="shop-sort-select">Sort by:</label>
+            <select id="shop-sort-select" class="shop-sort-select">
+              <option value="featured" ${activeSort === "featured" ? "selected" : ""}>Featured Roster</option>
+              <option value="rating" ${activeSort === "rating" ? "selected" : ""}>Highest Rated</option>
+              <option value="discount" ${activeSort === "discount" ? "selected" : ""}>Biggest Discount</option>
+              <option value="price-asc" ${activeSort === "price-asc" ? "selected" : ""}>Price: Low to High</option>
+              <option value="price-desc" ${activeSort === "price-desc" ? "selected" : ""}>Price: High to Low</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="shop-category-pills" id="shop-cat-pills">
+          <button type="button" class="shop-cat-pill ${activeCategory === "all" ? "active" : ""}" data-cat="all">All Items (${rawProducts.length})</button>
+          <button type="button" class="shop-cat-pill ${activeCategory === "collectibles" ? "active" : ""}" data-cat="collectibles">Action Figures</button>
+          <button type="button" class="shop-cat-pill ${activeCategory === "books" ? "active" : ""}" data-cat="books">Graphic Novels &amp; Books</button>
+          <button type="button" class="shop-cat-pill ${activeCategory === "replica" ? "active" : ""}" data-cat="replica">Replicas &amp; Props</button>
+          <button type="button" class="shop-cat-pill ${activeCategory === "wearables" ? "active" : ""}" data-cat="wearables">Streetwear &amp; Apparel</button>
+          <button type="button" class="shop-cat-pill ${activeCategory === "desk & gaming" ? "active" : ""}" data-cat="desk & gaming">Desk &amp; Gaming</button>
+        </div>
+      </div>
+
+      <div class="shop-grid-v2" id="shop-products-container">
+        ${getProductsGridHtml()}
+      </div>
+
+      <div class="comic-panel" style="margin-top:28px; padding:18px 22px; font-size:0.88rem; color:var(--muted); background:#ffffff;">
+        <strong>Affiliate Transparency:</strong> Marvel India participates in the Amazon Services LLC Associates Program. Clicking product links to make qualifying purchases on Amazon.in earns this fan community a modest commission at no extra cost to you, funding our independent server hosting and database costs.
+      </div>
+    </section>
+  `;
+
+  function refreshShopGrid() {
+    const container = document.getElementById("shop-products-container");
+    if (container) {
+      container.innerHTML = getProductsGridHtml();
+      document.getElementById("shop-reset-btn")?.addEventListener("click", () => {
+        activeCategory = "all";
+        activeSearch = "";
+        activeSort = "featured";
+        const searchInp = document.getElementById("shop-live-search");
+        if (searchInp) searchInp.value = "";
+        const clearBtn = document.getElementById("shop-search-clear");
+        if (clearBtn) clearBtn.style.display = "none";
+        const sortSel = document.getElementById("shop-sort-select");
+        if (sortSel) sortSel.value = "featured";
+        document.querySelectorAll(".shop-cat-pill").forEach(p => p.classList.toggle("active", p.dataset.cat === "all"));
+        refreshShopGrid();
+      });
+    }
+  }
+
+  // Category buttons
+  document.querySelectorAll("#shop-cat-pills .shop-cat-pill").forEach(pill => {
+    pill.addEventListener("click", () => {
+      activeCategory = pill.dataset.cat;
+      document.querySelectorAll("#shop-cat-pills .shop-cat-pill").forEach(p => p.classList.toggle("active", p === pill));
+      refreshShopGrid();
+    });
+  });
+
+  // Search input
+  const liveSearch = document.getElementById("shop-live-search");
+  const clearBtn = document.getElementById("shop-search-clear");
+  liveSearch?.addEventListener("input", (e) => {
+    activeSearch = e.target.value;
+    if (clearBtn) clearBtn.style.display = activeSearch ? "block" : "none";
+    refreshShopGrid();
+  });
+  clearBtn?.addEventListener("click", () => {
+    activeSearch = "";
+    if (liveSearch) liveSearch.value = "";
+    clearBtn.style.display = "none";
+    refreshShopGrid();
+  });
+
+  // Sort dropdown
+  document.getElementById("shop-sort-select")?.addEventListener("change", (e) => {
+    activeSort = e.target.value;
+    refreshShopGrid();
+  });
+
+  // Wire initial reset button if present
+  document.getElementById("shop-reset-btn")?.addEventListener("click", () => {
+    activeCategory = "all";
+    activeSearch = "";
+    activeSort = "featured";
+    refreshShopGrid();
+  });
+}
 
 // ---------------------------------------------------------------- ROUTER
 function parseHash() {
@@ -1703,6 +2341,7 @@ function route() {
   if (path === "/home" || path === "/") return renderHome();
   if (path === "/search") return renderSearch(params.get("q"));
   if (path.startsWith("/movie/")) return renderMovie(path.split("/")[2]);
+  if (path === "/trailers") return renderTrailers(params.get("cat"));
   if (path === "/timeline") return renderTimeline();
   if (path === "/roadmap") return renderRoadmap();
   if (path === "/characters" || path.startsWith("/character/")) {
@@ -1714,6 +2353,7 @@ function route() {
   if (path === "/blog/new") return renderNewBlogForm();
   if (path.startsWith("/blog/")) return renderBlogPost(path.split("/")[2]);
   if (path === "/shop") return renderShop();
+  if (path === "/contact") return renderContact();
   if (path === "/verify" || path === "/verify-otp" || path === "/auth/verify") {
     location.hash = "#/home";
     openAuthModal("verify", params.get("email") || "");
@@ -1728,13 +2368,16 @@ function isDesktopScreen() {
   return window.innerWidth > 900;
 }
 
-function closeSidebar() {
+function closeSidebar(syncHistory = true) {
   if (isDesktopScreen()) {
     document.querySelector(".app-shell")?.classList.add("sidebar-collapsed");
     localStorage.setItem("mi_sidebar_collapsed", "1");
   } else {
     document.getElementById("sidebar")?.classList.remove("open");
     document.getElementById("sidebar-backdrop")?.classList.remove("open");
+    if (syncHistory && history.state && history.state.miSidebar) {
+      history.back();
+    }
   }
 }
 
@@ -1743,6 +2386,9 @@ function openSidebar() {
     document.querySelector(".app-shell")?.classList.remove("sidebar-collapsed");
     localStorage.setItem("mi_sidebar_collapsed", "0");
   } else {
+    if (!history.state || !history.state.miSidebar) {
+      history.pushState({ miSidebar: true }, "");
+    }
     document.getElementById("sidebar")?.classList.add("open");
     document.getElementById("sidebar-backdrop")?.classList.add("open");
   }
@@ -1777,27 +2423,110 @@ function initSidebar() {
     e.preventDefault();
     closeSidebar();
   });
+  document.getElementById("sidebar-dock-collapse")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    closeSidebar();
+  });
+  document.getElementById("desktop-sidebar-expand")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    openSidebar();
+  });
   document.getElementById("sidebar-backdrop")?.addEventListener("click", (e) => {
     e.preventDefault();
     closeSidebar();
   });
 
-  // Keyboard shortcut Esc collapses/closes sidebar
+  // Footer back-to-top button
+  document.getElementById("footer-back-to-top")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  // Keyboard shortcut Esc collapses/closes sidebar & video modals
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
+      closeVideoModal();
       closeSidebar();
     }
   });
 
-  document.querySelectorAll(".sidebar-nav .navlink").forEach(a => {
-    a.addEventListener("click", () => {
+  // Sidebar search form submit handler
+  const sidebarSearchForm = document.getElementById("sidebar-search-form");
+  if (sidebarSearchForm) {
+    sidebarSearchForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = document.getElementById("sidebar-search-input");
+      const val = (input?.value || "").trim();
       if (!isDesktopScreen()) {
-        closeSidebar();
+        closeSidebar(false);
+      }
+      if (val) {
+        location.hash = `#/search?q=${encodeURIComponent(val)}`;
+      } else {
+        if (location.hash === "#/search") {
+          renderSearch("");
+        } else {
+          location.hash = "#/search";
+        }
+      }
+    });
+  }
+
+  // Sidebar & header search button click handler
+  const handleSearchBtnNav = (e) => {
+    if (!isDesktopScreen()) {
+      closeSidebar(false);
+    }
+    const currentHash = location.hash || "";
+    if (currentHash === "#/search" || currentHash.startsWith("#/search?")) {
+      e.preventDefault();
+      if (currentHash !== "#/search") {
+        location.hash = "#/search";
+      } else {
+        renderSearch("");
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setTimeout(() => {
+        const inp = document.getElementById("search-input");
+        if (inp) {
+          inp.value = "";
+          inp.focus();
+        }
+      }, 100);
+    }
+  };
+
+  document.getElementById("mobile-search-btn")?.addEventListener("click", handleSearchBtnNav);
+  document.querySelectorAll('a.navlink[href="#/search"]').forEach(a => {
+    a.addEventListener("click", handleSearchBtnNav);
+  });
+
+  // Sidebar navigation links - close mobile sidebar cleanly without popping history back
+  document.querySelectorAll(".sidebar-nav .navlink").forEach(a => {
+    a.addEventListener("click", (e) => {
+      const href = a.getAttribute("href");
+      if (!isDesktopScreen()) {
+        closeSidebar(false);
+      }
+      if (location.hash === href) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
     });
   });
 }
 
+window.addEventListener("popstate", () => {
+  const modalRoot = document.getElementById("modal-root");
+  if (modalRoot && modalRoot.children.length > 0) {
+    closeModal(false);
+    return;
+  }
+  const sidebar = document.getElementById("sidebar");
+  if (sidebar && sidebar.classList.contains("open")) {
+    closeSidebar(false);
+    return;
+  }
+});
 window.addEventListener("hashchange", route);
 window.addEventListener("mi-auth-changed", () => { updateAuthHeader(); });
 window.addEventListener("DOMContentLoaded", async () => {

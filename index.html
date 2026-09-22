@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Marvel India — Search, Timeline, Roadmap, Blog &amp; Shop</title>
-<meta name="description" content="A Marvel-focused hub: search, watch-provider lookup, in-universe timeline, a Doomsday watch-plan roadmap, a community blog feed, and Amazon merch picks.">
+<title>Marvel India — Search, Trailers, Timeline, Roadmap, Blog &amp; Shop</title>
+<meta name="description" content="A Marvel-focused hub: search, trailers &amp; teasers, watch-provider lookup, in-universe timeline, Doomsday watch-plan roadmap, community blog, and curated Marvel merchandise.">
 <meta name="theme-color" content="#d3181f">
 <meta name="robots" content="index, follow">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Marvel India">
-<meta property="og:title" content="Marvel India — Search, Timeline, Roadmap, Blog &amp; Shop">
-<meta property="og:description" content="A Marvel-focused hub: search, watch-provider lookup, in-universe timeline, a Doomsday watch-plan roadmap, a community blog feed, and Amazon merch picks.">
+<meta property="og:title" content="Marvel India — Search, Trailers, Timeline, Roadmap, Blog &amp; Shop">
+<meta property="og:description" content="A Marvel-focused hub: search, trailers &amp; teasers, watch-provider lookup, in-universe timeline, Doomsday watch-plan roadmap, community blog, and curated Marvel merchandise.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Marvel India — Search, Timeline, Roadmap, Blog &amp; Shop">
-<meta name="twitter:description" content="A Marvel-focused hub: search, watch-provider lookup, in-universe timeline, a Doomsday watch-plan roadmap, a community blog feed, and Amazon merch picks.">
+<meta name="twitter:title" content="Marvel India — Search, Trailers, Timeline, Roadmap, Blog &amp; Shop">
+<meta name="twitter:description" content="A Marvel-focused hub: search, trailers &amp; teasers, watch-provider lookup, in-universe timeline, Doomsday watch-plan roadmap, community blog, and curated Marvel merchandise.">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="apple-touch-icon" href="favicon.svg">
 <link rel="stylesheet" href="css/style.css">
@@ -25,28 +25,83 @@
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
       <a href="#/home" class="nav-brand">MARVEL<span>INDIA</span></a>
-      <button type="button" class="sidebar-close" id="sidebar-close" aria-label="Close menu">×</button>
+      <button type="button" class="sidebar-close" id="sidebar-close" aria-label="Collapse sidebar" title="Collapse sidebar (Esc)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+    </div>
+    <div class="sidebar-search-box">
+      <form id="sidebar-search-form" class="sidebar-search-form" role="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="sidebar-search-input" placeholder="Quick search..." autocomplete="off" aria-label="Quick search Marvel database">
+      </form>
     </div>
     <nav class="sidebar-nav">
-      <a href="#/home" class="navlink" data-route="home">Home</a>
-      <a href="#/search" class="navlink" data-route="search">Search</a>
-      <a href="#/timeline" class="navlink" data-route="timeline">Timeline</a>
-      <a href="#/roadmap" class="navlink" data-route="roadmap">Roadmap</a>
-      <a href="#/blog" class="navlink" data-route="blog">Blog</a>
-      <a href="#/shop" class="navlink" data-route="shop">Shop</a>
-      <a href="#/wishlist" class="navlink" data-route="wishlist">Wishlist</a>
+      <a href="#/home" class="navlink" data-route="home">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        <span>Home</span>
+      </a>
+      <a href="#/search" class="navlink" data-route="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <span>Search</span>
+      </a>
+      <a href="#/trailers" class="navlink" data-route="trailers">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        <span>Trailers</span>
+      </a>
+      <a href="#/timeline" class="navlink" data-route="timeline">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <span>Timeline</span>
+      </a>
+      <a href="#/roadmap" class="navlink" data-route="roadmap">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+        <span>Roadmap</span>
+      </a>
+      <a href="#/blog" class="navlink" data-route="blog">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+        <span>Blog</span>
+      </a>
+      <a href="#/shop" class="navlink" data-route="shop">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+        <span>Shop</span>
+      </a>
+      <a href="#/wishlist" class="navlink" data-route="wishlist">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+        <span>Wishlist</span>
+      </a>
     </nav>
     <div class="sidebar-auth" id="auth-slot"></div>
+    <div class="sidebar-desktop-collapse-bar">
+      <button type="button" class="sidebar-dock-btn" id="sidebar-dock-collapse" title="Collapse sidebar (Esc)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/></svg>
+        <span>Collapse Menu</span>
+        <kbd class="kbd-hint">Esc</kbd>
+      </button>
+    </div>
   </aside>
   <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
   <div class="main-wrap">
+    <!-- Desktop floating reopen tab when sidebar is collapsed -->
+    <button type="button" class="desktop-sidebar-expand-tab" id="desktop-sidebar-expand" aria-label="Expand sidebar" title="Expand navigation menu (☰)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
+      <span>Menu</span>
+    </button>
+
     <header class="site-header">
       <div class="site-header-inner">
         <button type="button" class="menu-toggle" id="menu-toggle" aria-label="Toggle navigation menu" title="Toggle navigation menu">☰</button>
         <a href="#/home" class="nav-brand header-brand mobile-brand">MARVEL<span>INDIA</span></a>
         <div class="header-spacer"></div>
-        <a href="#/search" class="header-search-btn" id="mobile-search-btn" aria-label="Search movies and characters">🔍</a>
+        <a href="#/search" class="header-search-btn" id="mobile-search-btn" aria-label="Search movies and series" title="Search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <span class="header-search-text">Search</span>
+        </a>
         <div class="header-auth" id="header-auth-slot"></div>
       </div>
     </header>
@@ -54,18 +109,79 @@
     <main id="app"></main>
 
     <footer class="site-footer">
-      <div class="footer-links">
-        <a href="#/home" class="footer-link">Home</a>
-        <a href="#/search" class="footer-link">Search</a>
-        <a href="#/timeline" class="footer-link">Timeline</a>
-        <a href="#/roadmap" class="footer-link">Roadmap</a>
-        <a href="#/blog" class="footer-link">Blog</a>
-        <a href="#/shop" class="footer-link">Shop</a>
-        <a href="#/privacy" class="footer-link">Privacy Policy</a>
-        <a href="#/terms" class="footer-link">Terms &amp; Disclaimers</a>
+      <div class="footer-inner">
+        <!-- Col 1: Brand & Identity -->
+        <div class="footer-col footer-col-brand">
+          <a href="#/home" class="footer-brand">MARVEL<span>INDIA</span></a>
+          <p class="footer-tagline">Dedicated community portal for Indian Marvelites — theatrical release countdowns, multi-language guides, and chronological watch orders.</p>
+        </div>
+
+        <!-- Col 2: Cinematic Hub -->
+        <div class="footer-col">
+          <h4 class="footer-col-title">Cinematic Hub</h4>
+          <ul class="footer-nav-list">
+            <li><a href="#/home">Multiverse Home</a></li>
+            <li><a href="#/search">Movie &amp; Character Search</a></li>
+            <li><a href="#/trailers">Marvel Trailers &amp; Teasers</a></li>
+            <li><a href="#/timeline">MCU Chronological Timeline</a></li>
+            <li><a href="#/roadmap">Doomsday Watch-Plan</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 3: Community & Store -->
+        <div class="footer-col">
+          <h4 class="footer-col-title">Community &amp; Perks</h4>
+          <ul class="footer-nav-list">
+            <li><a href="#/blog">Marvelite Blog &amp; Theories</a></li>
+            <li><a href="#/shop">Official Merch &amp; Collectibles</a></li>
+            <li><a href="#/wishlist">Personal Watch Wishlist</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 4: Regional Streaming & Official Inquiries -->
+        <div class="footer-col">
+          <h4 class="footer-col-title">Official Inquiries &amp; Legal</h4>
+          <p class="footer-ott-hint">Watch officially in Hindi, Tamil, Telugu, Malayalam &amp; English on Disney+ Hotstar, JioCinema, and SonyLIV.</p>
+          <div class="footer-contact-block">
+            <span class="footer-contact-label">Editorial &amp; Community:</span>
+            <a href="mailto:contact@marvelindia.in" class="footer-email-badge">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+              <span>contact@marvelindia.in</span>
+            </a>
+          </div>
+          <div class="footer-contact-block" style="margin-top:6px;">
+            <span class="footer-contact-label">Legal, DMCA &amp; Compliance:</span>
+            <a href="mailto:legal@marvelindia.in" class="footer-email-badge">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span>legal@marvelindia.in</span>
+            </a>
+          </div>
+          <div class="footer-legal-links">
+            <a href="#/privacy">Privacy Policy</a>
+            <span class="footer-sep">•</span>
+            <a href="#/terms">Terms</a>
+          </div>
+        </div>
       </div>
-      <p>Marvel India is an independent fan community for Indian Marvelites — featuring theatrical countdowns, watch guides, curated timelines, and community reviews. As an Amazon Associate, Marvel India earns from qualifying purchases. Not affiliated with Marvel Studios, Disney, or Sony Pictures.</p>
-      <p class="footer-subtext">Content, character names, and comic imagery &copy; respective trademark holders. All commentary, watch orders, and community posts are fan commentary under fair use.</p>
+
+      <!-- Bottom Bar -->
+      <div class="footer-bottom-bar">
+        <div class="footer-bottom-inner">
+          <p class="footer-disclaimer">
+            Marvel India is an independent fan community for Indian fans. Not affiliated with, endorsed by, or connected to Marvel Studios, Marvel Entertainment, The Walt Disney Company, or Sony Pictures Entertainment. All Marvel characters, logos, artwork, and trademarks belong to their respective copyright holders. Commentary and watch curation provided under fair use doctrine.
+          </p>
+          <p class="footer-affiliate-note">
+            As an Amazon Associate, Marvel India earns from qualifying purchases made through curated merchandise links.
+          </p>
+          <div class="footer-copyright-row">
+            <span>&copy; 2026 Marvel India Community. Crafted with passion for Desi Marvelites.</span>
+            <button type="button" class="footer-back-to-top" id="footer-back-to-top" title="Back to top">
+              <span>Back to Top</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
     </footer>
   </div>
 </div>
@@ -74,7 +190,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="/api/config.js"></script>
-<script src="js/config.js"></script>
 <script src="js/data.js"></script>
 <script src="js/supabaseClient.js"></script>
 <script src="js/db.js"></script>

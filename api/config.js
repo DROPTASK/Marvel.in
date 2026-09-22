@@ -14,7 +14,9 @@ export default async function handler(req, res) {
     TMDB_MARVEL_COMPANY_ID: 420,
     TMDB_IMAGE_BASE: "https://image.tmdb.org/t/p/w500",
     TMDB_BACKDROP_BASE: "https://image.tmdb.org/t/p/original",
-    AMAZON_AFFILIATE_TAG: process.env.AMAZON_AFFILIATE_TAG || "marvelindia09-21"
+    AMAZON_AFFILIATE_TAG: process.env.AMAZON_AFFILIATE_TAG || "marvelindia09-21",
+    CONTACT_EMAIL: process.env.CONTACT_EMAIL || "contact@marvelindia.in",
+    LEGAL_EMAIL: process.env.LEGAL_EMAIL || "legal@marvelindia.in"
   };
 
   const isScriptRequest = req.url && (req.url.endsWith(".js") || req.url.includes(".js?"));
