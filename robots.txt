@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Sitemaps and Ads
+Sitemap: https://marvelindia.in/sitemap.xml

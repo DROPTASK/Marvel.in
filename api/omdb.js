@@ -2,7 +2,7 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   if (req.method === "OPTIONS") return res.status(200).end();
   const key = process.env.OMDB_API_KEY;
-  if (!key) return res.status(500).json({ error: "OMDB_API_KEY not set on Vercel" });
+  if (!key) return res.status(500).json({ error: "OMDB_API_KEY not configured in environment" });
   const params = new URLSearchParams({ ...req.query, apikey: key });
   try {
     const r = await fetch(`https://www.omdbapi.com/?${params}`);

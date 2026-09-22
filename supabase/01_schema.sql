@@ -88,7 +88,7 @@ create table if not exists public.wishlist (
 -- Generic comments, keyed by item_type/item_id (e.g. 'movie'/'iron-man-2008').
 create table if not exists public.comments (
   id bigserial primary key,
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
   item_type text not null,
   item_id text not null,
   body text not null,
@@ -97,7 +97,7 @@ create table if not exists public.comments (
 
 -- --------------------------------------------------------------- watch_progress
 create table if not exists public.watch_progress (
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
   movie_id text not null references public.movies(id) on delete cascade,
   watched boolean not null default true,
   watched_at timestamptz not null default now(),
@@ -107,7 +107,7 @@ create table if not exists public.watch_progress (
 -- -------------------------------------------------------------------- blog_posts
 create table if not exists public.blog_posts (
   id uuid primary key default uuid_generate_v4(),
-  author_id uuid not null references auth.users(id) on delete cascade,
+  author_id uuid not null references public.profiles(id) on delete cascade,
   title text not null,
   slug text unique not null,
   cover_image_url text,
@@ -121,7 +121,7 @@ create table if not exists public.blog_posts (
 create table if not exists public.blog_comments (
   id bigserial primary key,
   post_id uuid not null references public.blog_posts(id) on delete cascade,
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
   body text not null,
   created_at timestamptz not null default now()
 );

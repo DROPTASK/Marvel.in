@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   if (req.method === "OPTIONS") return res.status(200).end();
   const key = process.env.TMDB_API_KEY;
-  if (!key) return res.status(500).json({ error: "TMDB_API_KEY not set on Vercel" });
+  if (!key) return res.status(500).json({ error: "TMDB_API_KEY not configured in environment" });
   const { path = "/search/movie", ...rest } = req.query;
   const params = new URLSearchParams({ api_key: key, ...rest });
   delete params.api_key; // ensure single

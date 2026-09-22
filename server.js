@@ -17,20 +17,18 @@ app.use(express.urlencoded({ extended: true }));
 app.all("/api/omdb", (req, res) => omdbHandler(req, res));
 app.all("/api/tmdb", (req, res) => tmdbHandler(req, res));
 
-// Dynamic config to support environment variables
+// Dynamic config to support environment variables only
 app.get("/js/config.js", (req, res) => {
   const config = {
-    SUPABASE_URL: process.env.SUPABASE_URL || "https://oospjmsuwrxvuuzfxwqu.supabase.co",
-    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9vc3BqbXN1d3J4dnV1emZ4d3F1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5ODE5NDIsImV4cCI6MjEwNTU1Nzk0Mn0.ziz8t0vcFLKRiyYSD6Vk4eTtMUvDh3qYXskZy1-XLIo",
+    SUPABASE_URL: process.env.SUPABASE_URL || "",
+    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || "",
     TMDB_API_KEY: process.env.TMDB_API_KEY || "",
     OMDB_API_KEY: process.env.OMDB_API_KEY || "",
     WATCHMODE_API_KEY: process.env.WATCHMODE_API_KEY || "",
-    MARVEL_PUBLIC_KEY: process.env.MARVEL_PUBLIC_KEY || "",
-    MARVEL_PRIVATE_KEY: process.env.MARVEL_PRIVATE_KEY || "",
     TMDB_MARVEL_COMPANY_ID: 420,
     TMDB_IMAGE_BASE: "https://image.tmdb.org/t/p/w500",
     TMDB_BACKDROP_BASE: "https://image.tmdb.org/t/p/original",
-    AMAZON_AFFILIATE_TAG: "marvelindia09-21"
+    AMAZON_AFFILIATE_TAG: process.env.AMAZON_AFFILIATE_TAG || "marvelindia09-21"
   };
   res.type("application/javascript");
   res.send(`window.MARVEL_INDIA_CONFIG = ${JSON.stringify(config, null, 2)};`);

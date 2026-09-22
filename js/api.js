@@ -45,11 +45,135 @@ const MI = window.MI_API = (() => {
       return safeJson(url);
     },
 
-    // best-effort single-result lookup used to enrich curated roadmap/timeline entries
-    async findByTitle(title) {
-      const data = await this.search(title);
-      if (!data || !data.results || !data.results.length) return null;
-      return data.results.find(r => r.media_type !== "person") || null;
+    async tvDetails(id) {
+      if (!this.ready()) return null;
+      const url = `https://api.themoviedb.org/3/tv/${id}?api_key=${cfg.TMDB_API_KEY}` +
+        `&append_to_response=credits,videos,external_ids,watch/providers`;
+      return safeJson(url);
+    },
+
+    async mediaDetails(id, mediaType = "movie") {
+      if (!this.ready() || !id) return null;
+      const isTv = mediaType === "tv" || mediaType === "series";
+      let data = null;
+
+      if (isTv) {
+        data = await this.tvDetails(id);
+      } else if (mediaType === "movie") {
+        data = await this.movieDetails(id);
+      } else {
+        // Unknown: try movieDetails first, check if valid or if TV has higher popularity/match
+        const [mov, tv] = await Promise.all([
+          this.movieDetails(id).catch(() => null),
+          this.tvDetails(id).catch(() => null)
+        ]);
+        if (mov && tv) {
+          // If TV has dramatically higher popularity / vote count, it is likely the intended show
+          data = (tv.vote_count || 0) > (mov.vote_count || 0) ? tv : mov;
+        } else {
+          data = mov || tv || null;
+        }
+      }
+
+      if (!data) return null;
+      return {
+        ...data,
+        title: data.title || data.name || "Untitled",
+        release_date: data.release_date || data.first_air_date || null,
+        runtime: data.runtime || (data.episode_run_time && data.episode_run_time[0]) || null,
+        media_type: (data.name && !data.title) ? "tv" : (data.title && !data.name ? "movie" : (isTv ? "tv" : "movie"))
+      };
+    },
+
+    // Accurate media lookup with title verification, type priority, and year handling
+    async findMedia(title, expectedType = null, year = null) {
+      if (!this.ready() || !title) return null;
+      let cleanQuery = String(title).trim();
+      let targetYear = year ? String(year).trim() : null;
+
+      // Extract trailing 4-digit year from query if present
+      const ym = cleanQuery.match(/^(.*?)\s+(\d{4})$/);
+      if (ym) {
+        cleanQuery = ym[1].trim();
+        if (!targetYear) targetYear = ym[2];
+      }
+
+      const isTv = expectedType === "tv" || expectedType === "series";
+
+      // 1. Try search/multi
+      const data = await this.search(cleanQuery);
+      let results = (data && data.results) ? data.results.filter(r => r.media_type !== "person") : [];
+
+      if (expectedType) {
+        results.sort((a, b) => {
+          const aMatch = isTv ? a.media_type === "tv" : a.media_type === "movie";
+          const bMatch = isTv ? b.media_type === "tv" : b.media_type === "movie";
+          return (bMatch ? 1 : 0) - (aMatch ? 1 : 0);
+        });
+      }
+
+      // 2. If no matching results, try specific search/movie or search/tv
+      if (!results.length && expectedType) {
+        const ep = isTv ? "tv" : "movie";
+        const yrParam = isTv
+          ? (targetYear ? `&first_air_date_year=${targetYear}` : "")
+          : (targetYear ? `&primary_release_year=${targetYear}` : "");
+        const specificUrl = `https://api.themoviedb.org/3/search/${ep}?api_key=${cfg.TMDB_API_KEY}` +
+          `&query=${encodeURIComponent(cleanQuery)}${yrParam}&include_adult=false`;
+        const specData = await safeJson(specificUrl);
+        if (specData && specData.results && specData.results.length) {
+          results = specData.results.map(r => ({ ...r, media_type: ep }));
+        }
+      }
+
+      if (!results.length) return null;
+
+      const norm = str => String(str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const titleNorm = norm(title);
+      const cleanNorm = norm(cleanQuery);
+
+      // Pass 1: Exact title match
+      for (const r of results) {
+        const rNorm = norm(r.title || r.name);
+        if (rNorm === cleanNorm || rNorm === titleNorm) {
+          if (!expectedType || (isTv ? r.media_type === "tv" : r.media_type === "movie")) {
+            return r;
+          }
+        }
+      }
+
+      // Pass 2: Exact title match regardless of expected type
+      for (const r of results) {
+        const rNorm = norm(r.title || r.name);
+        if (rNorm === cleanNorm || rNorm === titleNorm) return r;
+      }
+
+      // Pass 3: Contains match with matching media type
+      for (const r of results) {
+        if (expectedType) {
+          const mMatch = isTv ? r.media_type === "tv" : r.media_type === "movie";
+          if (!mMatch) continue;
+        }
+        const rNorm = norm(r.title || r.name);
+        if (rNorm.includes(cleanNorm) || cleanNorm.includes(rNorm)) return r;
+      }
+
+      // Pass 4: Starts-with match with matching media type
+      for (const r of results) {
+        if (expectedType) {
+          const mMatch = isTv ? r.media_type === "tv" : r.media_type === "movie";
+          if (!mMatch) continue;
+        }
+        const rNorm = norm(r.title || r.name);
+        if (cleanNorm.length >= 4 && rNorm.slice(0, 4) === cleanNorm.slice(0, 4)) return r;
+      }
+
+      return null;
+    },
+
+    // Best-effort lookup used to enrich curated entries
+    async findByTitle(title, expectedType = null, year = null) {
+      return this.findMedia(title, expectedType, year);
     },
 
     posterUrl(path) {
@@ -113,29 +237,5 @@ const MI = window.MI_API = (() => {
     }
   };
 
-  // ---------------- Marvel Comics API (characters) ------------------------
-  // Requires MD5(ts + privateKey + publicKey). We compute it client-side with
-  // a tiny built-in md5 implementation (see md5.js) purely for demo purposes —
-  // for production, proxy this through a server so the private key never
-  // reaches the browser.
-  const marvel = {
-    ready: () => !!(cfg.MARVEL_PUBLIC_KEY && cfg.MARVEL_PRIVATE_KEY && window.md5),
-    authParams() {
-      const ts = Date.now().toString();
-      const hash = window.md5(ts + cfg.MARVEL_PRIVATE_KEY + cfg.MARVEL_PUBLIC_KEY);
-      return `ts=${ts}&apikey=${cfg.MARVEL_PUBLIC_KEY}&hash=${hash}`;
-    },
-    async searchCharacter(name) {
-      if (!this.ready() || !name) return null;
-      const url = `https://gateway.marvel.com/v1/public/characters?nameStartsWith=${encodeURIComponent(name)}&${this.authParams()}`;
-      return safeJson(url);
-    },
-    async characterComics(characterId) {
-      if (!this.ready() || !characterId) return null;
-      const url = `https://gateway.marvel.com/v1/public/characters/${characterId}/comics?limit=12&${this.authParams()}`;
-      return safeJson(url);
-    }
-  };
-
-  return { tmdb, omdb, tvmaze, watchmode, marvel };
+  return { tmdb, omdb, tvmaze, watchmode };
 })();

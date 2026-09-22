@@ -4,10 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Marvel India — Search, Timeline, Roadmap, Blog &amp; Shop</title>
-<meta name="description" content="A Marvel-focused hub: search, watch-provider lookup, in-universe timeline, a Doomsday watch-plan roadmap, a character database, a community blog, and Amazon merch picks.">
+<meta name="description" content="A Marvel-focused hub: search, watch-provider lookup, in-universe timeline, a Doomsday watch-plan roadmap, a community blog feed, and Amazon merch picks.">
+<meta name="theme-color" content="#d3181f">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Marvel India">
 <meta property="og:title" content="Marvel India — Search, Timeline, Roadmap, Blog &amp; Shop">
-<meta property="og:description" content="A Marvel-focused hub: search, watch-provider lookup, in-universe timeline, a Doomsday watch-plan roadmap, a character database, a community blog, and Amazon merch picks.">
-<link rel="icon" href="data:,">
+<meta property="og:description" content="A Marvel-focused hub: search, watch-provider lookup, in-universe timeline, a Doomsday watch-plan roadmap, a community blog feed, and Amazon merch picks.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Marvel India — Search, Timeline, Roadmap, Blog &amp; Shop">
+<meta name="twitter:description" content="A Marvel-focused hub: search, watch-provider lookup, in-universe timeline, a Doomsday watch-plan roadmap, a community blog feed, and Amazon merch picks.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="favicon.svg">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -24,7 +32,6 @@
       <a href="#/search" class="navlink" data-route="search">Search</a>
       <a href="#/timeline" class="navlink" data-route="timeline">Timeline</a>
       <a href="#/roadmap" class="navlink" data-route="roadmap">Roadmap</a>
-      <a href="#/characters" class="navlink" data-route="characters">Characters</a>
       <a href="#/blog" class="navlink" data-route="blog">Blog</a>
       <a href="#/shop" class="navlink" data-route="shop">Shop</a>
       <a href="#/wishlist" class="navlink" data-route="wishlist">Wishlist</a>
@@ -39,13 +46,26 @@
         <button type="button" class="menu-toggle" id="menu-toggle" aria-label="Open menu">☰</button>
         <a href="#/home" class="nav-brand mobile-brand">MARVEL<span>INDIA</span></a>
         <div class="header-spacer"></div>
+        <a href="#/search" class="header-search-btn" id="mobile-search-btn" aria-label="Search movies and characters">🔍</a>
+        <div class="header-auth" id="header-auth-slot"></div>
       </div>
     </header>
 
     <main id="app"></main>
 
     <footer class="site-footer">
-      <p>Marvel India is a fan-made demo. Movie data via TMDB, OMDb &amp; Watchmode; accounts &amp; database via Supabase. As an Amazon Associate, Marvel India earns from qualifying purchases. Not affiliated with Marvel Studios or The Walt Disney Company.</p>
+      <div class="footer-links">
+        <a href="#/home" class="footer-link">Home</a>
+        <a href="#/search" class="footer-link">Search</a>
+        <a href="#/timeline" class="footer-link">Timeline</a>
+        <a href="#/roadmap" class="footer-link">Roadmap</a>
+        <a href="#/blog" class="footer-link">Blog</a>
+        <a href="#/shop" class="footer-link">Shop</a>
+        <a href="#/privacy" class="footer-link">Privacy Policy</a>
+        <a href="#/terms" class="footer-link">Terms &amp; Disclaimers</a>
+      </div>
+      <p>Marvel India is an independent fan community for Indian Marvelites — featuring theatrical countdowns, watch guides, curated timelines, and community reviews. As an Amazon Associate, Marvel India earns from qualifying purchases. Not affiliated with Marvel Studios, Disney, or Sony Pictures.</p>
+      <p class="footer-subtext">Content, character names, and comic imagery &copy; respective trademark holders. All commentary, watch orders, and community posts are fan commentary under fair use.</p>
     </footer>
   </div>
 </div>
@@ -53,7 +73,6 @@
 <div id="modal-root"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="js/md5.js"></script>
 <script src="js/config.js"></script>
 <script src="js/data.js"></script>
 <script src="js/supabaseClient.js"></script>
