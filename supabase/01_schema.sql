@@ -108,7 +108,7 @@ create table if not exists public.watch_progress (
 
 -- -------------------------------------------------------------------- blog_posts
 create table if not exists public.blog_posts (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   author_id uuid not null references public.profiles(id) on delete cascade,
   title text not null,
   slug text unique not null,
@@ -159,49 +159,70 @@ alter table public.blog_comments enable row level security;
 alter table public.affiliate_products enable row level security;
 
 -- Public reference data: anyone can read; movies can be edited/updated by community/admin
+drop policy if exists "movies are public" on public.movies;
 create policy "movies are public" on public.movies for select using (true);
+drop policy if exists "movies are editable" on public.movies;
 create policy "movies are editable" on public.movies for all using (true) with check (true);
+drop policy if exists "timeline is public" on public.timeline_events;
 create policy "timeline is public" on public.timeline_events for select using (true);
+drop policy if exists "characters are public" on public.characters;
 create policy "characters are public" on public.characters for select using (true);
+drop policy if exists "affiliate products are public" on public.affiliate_products;
 create policy "affiliate products are public" on public.affiliate_products for select using (true);
+drop policy if exists "published posts are public" on public.blog_posts;
 create policy "published posts are public" on public.blog_posts for select using (published = true);
+drop policy if exists "blog comments are public" on public.blog_comments;
 create policy "blog comments are public" on public.blog_comments for select using (true);
+drop policy if exists "comments are public" on public.comments;
 create policy "comments are public" on public.comments for select using (true);
 
 -- Profiles: readers can see any profile (for author names/avatars); only the
 -- owner can edit their own row.
+drop policy if exists "profiles are readable" on public.profiles;
 create policy "profiles are readable" on public.profiles for select using (true);
+drop policy if exists "users update own profile" on public.profiles;
 create policy "users update own profile" on public.profiles for update using (auth.uid() = id);
 
 -- Wishlist: fully private to the owner.
+drop policy if exists "users manage own wishlist" on public.wishlist;
 create policy "users manage own wishlist" on public.wishlist
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- Watch progress: fully private to the owner.
+drop policy if exists "users manage own watch progress" on public.watch_progress;
 create policy "users manage own watch progress" on public.watch_progress
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- Comments (movie/character pages): any signed-in user can add; only the
 -- author can edit/delete their own.
+drop policy if exists "signed-in users add comments" on public.comments;
 create policy "signed-in users add comments" on public.comments
   for insert with check (auth.uid() = user_id);
+drop policy if exists "authors manage own comments" on public.comments;
 create policy "authors manage own comments" on public.comments
   for update using (auth.uid() = user_id);
+drop policy if exists "authors delete own comments" on public.comments;
 create policy "authors delete own comments" on public.comments
   for delete using (auth.uid() = user_id);
 
 -- Blog posts: any signed-in user can publish; only the author can edit/delete.
+drop policy if exists "signed-in users create posts" on public.blog_posts;
 create policy "signed-in users create posts" on public.blog_posts
   for insert with check (auth.uid() = author_id);
+drop policy if exists "authors see own drafts too" on public.blog_posts;
 create policy "authors see own drafts too" on public.blog_posts
   for select using (published = true or auth.uid() = author_id);
+drop policy if exists "authors update own posts" on public.blog_posts;
 create policy "authors update own posts" on public.blog_posts
   for update using (auth.uid() = author_id);
+drop policy if exists "authors delete own posts" on public.blog_posts;
 create policy "authors delete own posts" on public.blog_posts
   for delete using (auth.uid() = author_id);
 
 -- Blog comments: any signed-in user can add; only the author can delete.
+drop policy if exists "signed-in users add blog comments" on public.blog_comments;
 create policy "signed-in users add blog comments" on public.blog_comments
   for insert with check (auth.uid() = user_id);
+drop policy if exists "authors delete own blog comments" on public.blog_comments;
 create policy "authors delete own blog comments" on public.blog_comments
   for delete using (auth.uid() = user_id);

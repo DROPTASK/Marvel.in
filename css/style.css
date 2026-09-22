@@ -355,38 +355,338 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px 20px 80px; }
 .fine-print { font-size: 0.85rem; color: var(--muted); margin-top: 14px; line-height: 1.5; }
 
 /* ---- OTP 6-Digit Verification Styles ------------------------------------- */
-.otp-input-row { display: flex; justify-content: center; margin: 10px 0 14px; }
-.otp-input {
-  font-family: 'Courier New', Courier, monospace !important;
-  font-size: 2.2rem !important;
-  font-weight: 900 !important;
-  letter-spacing: 12px !important;
-  text-align: center !important;
-  width: 100% !important;
-  max-width: 290px !important;
-  padding: 12px 6px 12px 18px !important;
-  border: 3px solid var(--ink) !important;
-  border-radius: 6px !important;
-  background: #ffffff !important;
-  color: var(--marvel-red) !important;
-  box-shadow: inset 2px 2px 0 rgba(0,0,0,0.1);
+.otp-page-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 32px 16px 50px;
 }
-.otp-input:focus {
+.otp-verify-card {
+  width: 100%;
+  max-width: 500px;
+  background: #fbf7ec;
+  border: 3px solid var(--ink);
+  box-shadow: 8px 8px 0 var(--ink);
+  border-radius: 6px;
+  padding: 32px 28px;
+  text-align: center;
+}
+.otp-crest-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.otp-crest {
+  width: 56px;
+  height: 56px;
+  background: var(--marvel-red);
+  color: #fff;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.otp-verify-card h1 {
+  font-family: 'Anton', sans-serif;
+  font-size: 2rem;
+  letter-spacing: 0.04em;
+  margin: 0 0 8px;
+  color: var(--ink);
+}
+.otp-verify-card p.otp-intro {
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+.otp-email-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #efe6d2;
+  border: 2px dashed var(--ink);
+  padding: 10px 14px;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  margin-bottom: 20px;
+  text-align: left;
+}
+.otp-email-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.otp-email-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.otp-email-address {
+  font-weight: 700;
+  color: var(--ink);
+  word-break: break-all;
+}
+.otp-change-email-btn {
+  background: none;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  padding: 3px 10px;
+  font-size: 0.85rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+  background: #fff;
+  color: var(--ink);
+  transition: all 0.15s ease;
+}
+.otp-change-email-btn:hover {
+  background: var(--marvel-red);
+  color: #fff;
+  border-color: var(--marvel-red);
+}
+.otp-email-input-wrap {
+  text-align: left;
+  margin-bottom: 18px;
+}
+.otp-email-input-wrap label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+.otp-email-input-wrap input {
+  padding: 10px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  font-size: 1rem;
+  font-family: 'Merriweather', serif;
+}
+
+/* 6 individual digit input boxes */
+.otp-digits-label {
+  display: block;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 12px;
+  text-align: left;
+}
+.otp-digit-group {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.otp-digit-box {
+  width: 52px;
+  height: 60px;
+  text-align: center;
+  font-family: 'Anton', sans-serif;
+  font-size: 1.8rem;
+  color: var(--marvel-red);
+  background: #ffffff;
+  border: 2.5px solid var(--ink);
+  border-radius: 6px;
+  box-shadow: 2px 2px 0 var(--ink);
+  transition: all 0.15s ease;
+}
+.otp-digit-box:focus {
   outline: none;
-  border-color: var(--marvel-red) !important;
-  box-shadow: 0 0 0 3px rgba(211,24,31,0.25);
+  border-color: var(--marvel-red);
+  box-shadow: 0 0 0 3px rgba(211, 24, 31, 0.25), 3px 3px 0 var(--ink);
+  transform: translateY(-2px);
 }
-.otp-info-box {
-  background: #efe6d2; border: 2px dashed var(--ink);
-  padding: 12px 14px; border-radius: 4px; font-size: 0.95rem; margin-bottom: 8px; line-height: 1.45;
+@media (max-width: 480px) {
+  .otp-digit-group {
+    gap: 6px;
+  }
+  .otp-digit-box {
+    width: 42px;
+    height: 52px;
+    font-size: 1.5rem;
+  }
+  .otp-verify-card {
+    padding: 22px 16px;
+  }
 }
-.otp-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+
+.otp-paste-hint {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-bottom: 16px;
+  font-style: italic;
+}
+
+/* Status message */
+.otp-status {
+  padding: 10px 14px;
+  border-radius: 4px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  margin-bottom: 14px;
+  text-align: left;
+}
+.otp-status.error {
+  background: #fde8e8;
+  border: 2px solid var(--marvel-red);
+  color: #9b1c1c;
+}
+.otp-status.success {
+  background: #def7ec;
+  border: 2px solid #0e9f6e;
+  color: #03543f;
+}
+.otp-status.info {
+  background: #e1effe;
+  border: 2px solid #3f83f8;
+  color: #1e429f;
+}
+
+/* Resend row */
+.otp-resend-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 20px;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
 .otp-btn-link {
-  background: none; border: none; padding: 0; color: var(--marvel-red);
-  font-weight: 700; cursor: pointer; font-family: 'Barlow Condensed', sans-serif; font-size: 1.05rem;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--marvel-red);
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.05rem;
+  text-decoration: underline;
 }
-.otp-btn-link:hover { text-decoration: underline; }
-.otp-btn-link:disabled { color: var(--muted); cursor: not-allowed; text-decoration: none; }
+.otp-btn-link:hover {
+  color: #9e0e14;
+}
+.otp-btn-link:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  text-decoration: none;
+}
+.otp-timer {
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* Troubleshooting help box */
+.otp-help-box {
+  background: #ffffff;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  padding: 14px 16px;
+  text-align: left;
+  margin-top: 14px;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+.otp-help-box h4 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.1rem;
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+.otp-help-box ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.88rem;
+  color: var(--ink);
+  line-height: 1.5;
+}
+.otp-help-box li {
+  margin-bottom: 4px;
+}
+
+/* Success state */
+.otp-success-state {
+  text-align: center;
+  padding: 24px 12px;
+}
+.otp-success-icon {
+  width: 64px;
+  height: 64px;
+  background: #0e9f6e;
+  color: #fff;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  font-weight: 900;
+  margin-bottom: 16px;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.otp-success-state h2 {
+  font-family: 'Anton', sans-serif;
+  font-size: 2.1rem;
+  margin: 0 0 10px;
+  color: var(--ink);
+}
+.otp-success-state p {
+  color: var(--ink);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+
+/* Sidebar and Modal extras */
+.sidebar-verify-link {
+  display: inline-block;
+  color: var(--gold);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: none;
+  margin-top: 6px;
+  text-align: center;
+  width: 100%;
+}
+.sidebar-verify-link:hover {
+  text-decoration: underline;
+  color: #fff;
+}
+.auth-verify-prompt {
+  text-align: center;
+  margin-top: 14px;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--marvel-red);
+  text-decoration: underline;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 700;
+}
+.link-btn:hover {
+  color: #9e0e14;
+}
 
 /* ---- Home Blog Feed ----------------------------------------------------- */
 .home-blog-header {
@@ -1267,176 +1567,6 @@ img.detail-poster {
 /* =========================================================================
    Roadmap Editor & Database Management Styles
    ========================================================================= */
-.roadmap-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 20px;
-  padding: 12px 18px;
-  background: #efe6d2;
-  border: 2px solid var(--ink);
-  border-radius: 6px;
-  box-shadow: 3px 3px 0 var(--ink);
-}
-.roadmap-toolbar-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 700;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 1.15rem;
-  color: var(--ink);
-}
-.roadmap-db-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.roadmap-toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.roadmap-edit-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: #ffffff;
-  border: 2px solid var(--ink);
-  color: var(--ink);
-  font-weight: 700;
-  padding: 6px 14px;
-  border-radius: 4px;
-  cursor: pointer;
-  box-shadow: 2px 2px 0 var(--ink);
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 1rem;
-  transition: all 0.15s ease;
-}
-.roadmap-edit-toggle:hover {
-  background: #fdf2d0;
-}
-.roadmap-edit-toggle.active {
-  background: var(--marvel-red);
-  color: #fff;
-  border-color: var(--ink);
-}
-.roadmap-add-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--marvel-red);
-  border: 2px solid var(--ink);
-  color: #fff;
-  font-weight: 700;
-  padding: 6px 14px;
-  border-radius: 4px;
-  cursor: pointer;
-  box-shadow: 2px 2px 0 var(--ink);
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 1rem;
-  transition: all 0.15s ease;
-}
-.roadmap-add-btn:hover {
-  background: #b7131a;
-  transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0 var(--ink);
-}
-.roadmap-item-edit-btn {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: #ffffff;
-  border: 1.5px solid var(--ink);
-  border-radius: 4px;
-  color: var(--ink);
-  padding: 2px 8px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  font-family: 'Barlow Condensed', sans-serif;
-  cursor: pointer;
-  box-shadow: 1px 1px 0 var(--ink);
-  margin-left: 6px;
-  transition: all 0.12s ease;
-}
-.roadmap-item-edit-btn:hover {
-  background: var(--marvel-red);
-  color: #fff;
-}
-.roadmap-editing-active .roadmap-item-edit-btn {
-  display: inline-flex;
-}
-
-/* Modal Wide for Roadmap Project Editor */
-.modal.modal-wide {
-  max-width: 600px;
-  max-height: 88vh;
-  overflow-y: auto;
-}
-.form-grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-@media (max-width: 600px) {
-  .form-grid-2 {
-    grid-template-columns: 1fr;
-  }
-}
-.form-row-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  background: #efe6d2;
-  padding: 10px 14px;
-  border: 2px solid var(--ink);
-  border-radius: 4px;
-  margin-top: 6px;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 700;
-  color: var(--ink);
-}
-.form-row-checkbox input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
-  accent-color: var(--marvel-red);
-}
-.modal-btn-row {
-  display: flex;
-  gap: 10px;
-  margin-top: 18px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.btn-delete-project {
-  margin-left: auto;
-  background: #f8d7da;
-  color: #721c24;
-  border: 2px solid var(--ink);
-  border-radius: 4px;
-  padding: 8px 14px;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 2px 2px 0 var(--ink);
-}
-.btn-delete-project:hover {
-  background: #dc3545;
-  color: #fff;
-}
-
 /* Toast Notification */
 .app-toast {
   position: fixed;

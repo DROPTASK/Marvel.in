@@ -96,7 +96,6 @@ const MI_DB = (() => {
   // ------------------------------------------------------------- movies
   async function getRoadmap() {
     const local = localRoadmap();
-    const customLocal = getCustomMovies();
     let dbData = [];
 
     if (MI_SUPABASE.ready) {
@@ -110,72 +109,57 @@ const MI_DB = (() => {
       }
     }
 
-    // Merge: local defaults -> Supabase DB data -> local custom edits
-    const map = new Map();
-    local.forEach(m => {
-      map.set(normTitle(m.title), { ...m });
-    });
+    // When database has data, treat it as the live authoritative source of truth!
+    if (dbData && dbData.length > 0) {
+      const localMap = new Map();
+      local.forEach(m => localMap.set(normTitle(m.title), m));
 
-    dbData.forEach(dbItem => {
-      if (!dbItem || !dbItem.title) return;
-      const key = normTitle(dbItem.title);
-      const existing = map.get(key);
+      return dbData.map(dbItem => {
+        if (!dbItem || !dbItem.title) return null;
+        const key = normTitle(dbItem.title);
+        const fallback = localMap.get(key);
 
-      const safePoster = (existing && existing.poster && existing.poster !== "assets/placeholder-poster.svg")
-        ? existing.poster
-        : ((dbItem.poster && String(dbItem.poster).startsWith("http")) ? dbItem.poster : null);
-
-      let relDate = dbItem.release_date || (existing ? existing.release_date : null);
-      if (dbItem.title && dbItem.title.includes("Doomsday") && (!relDate || relDate === "2026-05-01")) {
-        relDate = "2026-12-18";
-      }
-
-      if (existing) {
-        map.set(key, {
-          ...existing,
-          ...dbItem,
-          db_id: dbItem.id,
-          id: dbItem.id || existing.id,
-          release_date: relDate,
-          poster: safePoster,
-          type: existing.type || dbItem.type || (dbItem.phase === "xmen" ? "xmen" : dbItem.phase === "series" ? "series" : "movie"),
-          status: dbItem.status || existing.status,
-          runtime_minutes: dbItem.runtime_minutes || existing.runtime_minutes,
-          priority: dbItem.priority || existing.priority,
-          synopsis: dbItem.synopsis || existing.synopsis,
-          tmdb_query: dbItem.tmdb_query || existing.tmdb_query
-        });
-      } else {
-        map.set(key, {
-          ...dbItem,
-          db_id: dbItem.id,
-          release_date: relDate,
-          poster: safePoster,
-          type: dbItem.type || (dbItem.phase === "xmen" ? "xmen" : dbItem.phase === "series" ? "series" : "movie")
-        });
-      }
-    });
-
-    // Apply explicit local custom edits (from roadmap editor)
-    Object.values(customLocal).forEach(c => {
-      if (!c || !c.title) return;
-      const key = normTitle(c.title);
-      const existing = map.get(key);
-      map.set(key, { ...(existing || {}), ...c });
-    });
-
-    // Sanitize Doomsday date
-    const result = Array.from(map.values())
-      .filter(m => m && m.title)
-      .map(m => {
-        if (m.title && m.title.includes("Doomsday") && (!m.release_date || m.release_date === "2026-05-01")) {
-          return { ...m, release_date: "2026-12-18", spotlight: true };
+        let relDate = dbItem.release_date || (fallback ? fallback.release_date : null);
+        if (dbItem.title.includes("Doomsday") && (!relDate || relDate === "2026-05-01")) {
+          relDate = "2026-12-18";
         }
-        return m;
-      })
-      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
-    return result;
+        const safePoster = (dbItem.poster && String(dbItem.poster).startsWith("http"))
+          ? dbItem.poster
+          : (fallback && fallback.poster && fallback.poster !== "assets/placeholder-poster.svg" ? fallback.poster : dbItem.poster || null);
+
+        const movieType = dbItem.type || (fallback ? fallback.type : (dbItem.phase === "xmen" ? "xmen" : dbItem.phase === "series" ? "series" : "movie"));
+
+        return {
+          id: dbItem.id,
+          db_id: dbItem.id,
+          title: dbItem.title,
+          year: dbItem.year,
+          phase: dbItem.phase,
+          saga: dbItem.saga,
+          status: dbItem.status || "released",
+          release_date: relDate,
+          runtime_minutes: dbItem.runtime_minutes || (fallback ? fallback.runtime_minutes : 120),
+          priority: dbItem.priority || (fallback ? fallback.priority : "must-watch"),
+          synopsis: dbItem.synopsis || (fallback ? fallback.synopsis : null),
+          tmdb_query: dbItem.tmdb_query || (fallback ? fallback.tmdb_query : dbItem.title),
+          spotlight: (dbItem.title.includes("Doomsday")) ? true : !!dbItem.spotlight,
+          poster: safePoster,
+          type: movieType,
+          sort_order: typeof dbItem.sort_order === "number" ? dbItem.sort_order : (fallback ? fallback.sort_order : 100)
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    }
+
+    // Fallback: local roadmap when DB is empty or not yet connected
+    return local.map(m => {
+      if (m.title && m.title.includes("Doomsday") && (!m.release_date || m.release_date === "2026-05-01")) {
+        return { ...m, release_date: "2026-12-18", spotlight: true };
+      }
+      return m;
+    }).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   }
 
   async function upsertMovie(movie) {
@@ -411,21 +395,54 @@ const MI_DB = (() => {
   }
 
   // ------------------------------------------------------------- watch progress
-  async function getWatchedIds(userId) {
-    const bail = guard([]); if (bail) return bail;
-    if (!userId) return [];
-    const { data, error } = await sb().from("watch_progress").select("movie_id").eq("user_id", userId).eq("watched", true);
-    if (error) { console.error(error); return []; }
-    return data.map(r => r.movie_id);
+  function getLocalWatched() {
+    try {
+      return JSON.parse(localStorage.getItem("mi_local_watched") || "[]");
+    } catch {
+      return [];
+    }
   }
+
+  function setLocalWatched(list) {
+    try {
+      localStorage.setItem("mi_local_watched", JSON.stringify(list));
+    } catch {}
+  }
+
+  async function getWatchedIds(userId) {
+    const local = getLocalWatched();
+    if (!userId || !MI_SUPABASE.ready) return local;
+    try {
+      const { data, error } = await sb().from("watch_progress").select("movie_id").eq("user_id", userId).eq("watched", true);
+      if (error || !data) return local;
+      const dbIds = data.map(r => r.movie_id);
+      const merged = Array.from(new Set([...local, ...dbIds]));
+      return merged;
+    } catch {
+      return local;
+    }
+  }
+
   async function toggleWatched(userId, movieId, nowWatched) {
-    if (!userId) return { ok: false, error: "Sign up or log in to track progress." };
+    const local = getLocalWatched();
+    let updated;
     if (nowWatched) {
-      const { error } = await sb().from("watch_progress").upsert({ user_id: userId, movie_id: movieId, watched: true, watched_at: new Date().toISOString() });
-      if (error) return { ok: false, error: error.message };
+      updated = Array.from(new Set([...local, movieId]));
     } else {
-      const { error } = await sb().from("watch_progress").delete().eq("user_id", userId).eq("movie_id", movieId);
-      if (error) return { ok: false, error: error.message };
+      updated = local.filter(id => id !== movieId);
+    }
+    setLocalWatched(updated);
+
+    if (userId && MI_SUPABASE.ready) {
+      try {
+        if (nowWatched) {
+          await sb().from("watch_progress").upsert({ user_id: userId, movie_id: movieId, watched: true, watched_at: new Date().toISOString() });
+        } else {
+          await sb().from("watch_progress").delete().eq("user_id", userId).eq("movie_id", movieId);
+        }
+      } catch (err) {
+        // non-blocking sync error
+      }
     }
     return { ok: true };
   }

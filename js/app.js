@@ -37,7 +37,8 @@ function updateAuthHeader() {
          <span class="hello">${esc(uname)}</span>
          <a href="#/wishlist" class="pill">Wishlist</a>
          <button class="pill ghost" id="logout-btn">Log out</button>`
-      : `<button class="pill" id="open-auth">Sign up / Log in</button>`;
+      : `<button class="pill" id="open-auth">Sign up / Log in</button>
+         <a href="#/verify" class="sidebar-verify-link">Verify OTP &rarr;</a>`;
   }
 
   if (headerSlot) {
@@ -109,6 +110,9 @@ function openAuthModal(defaultMode = "login") {
             <p class="form-error" id="auth-error"></p>
             <button type="submit" class="pill primary full" id="auth-submit-btn">${mode === "login" ? "Log in" : "Create Account"}</button>
           </form>
+          <div class="auth-verify-prompt">
+            Received a 6-digit confirmation code? <a href="#/verify" id="modal-link-verify" class="link">Enter OTP Code &rarr;</a>
+          </div>
           <p class="fine-print">Join India's Marvel community to sync watchlists, write reviews, and track release dates.</p>
         </div>
       </div>`;
@@ -119,6 +123,10 @@ function openAuthModal(defaultMode = "login") {
     const usernameWrapper = document.getElementById("username-field");
     const usernameInput = form.querySelector('[name="username"]');
     const noteEl = document.getElementById("auth-notification");
+
+    document.getElementById("modal-link-verify")?.addEventListener("click", () => {
+      closeModal();
+    });
 
     document.querySelectorAll(".tab").forEach(tabBtn => {
       tabBtn.onclick = () => {
@@ -169,11 +177,9 @@ function openAuthModal(defaultMode = "login") {
           return;
         }
         if (result.needsEmailConfirm) {
-          noteEl.textContent = "Account registered successfully! You can now log in with your credentials.";
-          noteEl.style.display = "block";
-          // switch to login tab
-          const loginTab = document.querySelector('.tab[data-tab="login"]');
-          if (loginTab) loginTab.click();
+          sessionStorage.setItem("mi_pending_otp_email", email);
+          closeModal();
+          location.hash = `#/verify?email=${encodeURIComponent(email)}&type=signup`;
         } else {
           closeModal();
           updateAuthHeader();
@@ -1163,226 +1169,7 @@ async function renderTimeline() {
   });
 }
 
-// ---------------------------------------------------------------- ROADMAP (+ Doomsday watch plan + DB Editor)
-let roadmapEditingActive = false;
-
-function showToast(message, isError = false) {
-  const existing = document.querySelector(".app-toast");
-  if (existing) existing.remove();
-  const toast = document.createElement("div");
-  toast.className = `app-toast ${isError ? "toast-error" : ""}`;
-  toast.innerHTML = `<span>${esc(message)}</span>`;
-  document.body.appendChild(toast);
-  setTimeout(() => {
-    toast.style.transition = "opacity 0.3s ease, transform 0.3s ease";
-    toast.style.opacity = "0";
-    toast.style.transform = "translateY(10px)";
-    setTimeout(() => toast.remove(), 300);
-  }, 3500);
-}
-
-function openRoadmapMovieEditorModal(movieId, roadmap) {
-  const modalRoot = document.getElementById("modal-root");
-  const movie = movieId ? roadmap.find(m => m.id === movieId) : null;
-  const isEdit = !!movie;
-
-  const title = movie ? movie.title : "";
-  let relDate = (movie && movie.release_date) ? movie.release_date : "";
-  if (movie && movie.id === "avengers-doomsday" && (!relDate || relDate === "2026-05-01")) {
-    relDate = "2026-12-18";
-  }
-  const year = movie ? movie.year : new Date().getFullYear();
-  const phase = movie ? movie.phase : "phase6";
-  const saga = movie ? (movie.saga || "Multiverse Saga") : "Multiverse Saga";
-  const type = movie ? (movie.type || (phase === "series" ? "series" : phase === "xmen" ? "xmen" : "movie")) : "movie";
-  const status = movie ? movie.status : "upcoming";
-  const priority = movie ? movie.priority : "must-watch";
-  const runtime = movie ? (movie.runtime_minutes || 130) : 130;
-  const tmdbQuery = movie ? (movie.tmdb_query || movie.title) : "";
-  const poster = movie ? (movie.poster || "") : "";
-  const synopsis = movie ? (movie.synopsis || "") : "";
-  const isSpotlight = movie ? (movie.is_spotlight || movie.id === "avengers-doomsday") : false;
-
-  modalRoot.innerHTML = `
-    <div class="modal-backdrop" id="modal-backdrop">
-      <div class="modal modal-wide comic-panel">
-        <button class="modal-close" id="modal-close" aria-label="Close modal">&times;</button>
-        <h2>${isEdit ? `Edit Project: ${esc(title)}` : "Add Project to Roadmap"}</h2>
-        <p class="muted" style="margin-bottom:14px;">Changes are stored directly in the database and synced across the roadmap.</p>
-        
-        <form id="roadmap-movie-form">
-          <label>Project Title
-            <input name="title" required value="${esc(title)}" placeholder="e.g. Avengers: Doomsday">
-          </label>
-
-          <div class="form-grid-2">
-            <label>Release Date (YYYY-MM-DD)
-              <input name="release_date" type="date" value="${esc(relDate)}" placeholder="2026-12-18">
-            </label>
-            <label>Release Year
-              <input name="year" type="number" required min="1990" max="2035" value="${year}">
-            </label>
-          </div>
-
-          <div class="form-grid-2">
-            <label>MCU Phase
-              <select name="phase">
-                <option value="phase6" ${phase === "phase6" ? "selected" : ""}>Phase Six (2026–2027)</option>
-                <option value="phase5" ${phase === "phase5" ? "selected" : ""}>Phase Five (2023–2025)</option>
-                <option value="phase4" ${phase === "phase4" ? "selected" : ""}>Phase Four (2021–2022)</option>
-                <option value="phase3" ${phase === "phase3" ? "selected" : ""}>Phase Three (2016–2019)</option>
-                <option value="phase2" ${phase === "phase2" ? "selected" : ""}>Phase Two (2013–2015)</option>
-                <option value="phase1" ${phase === "phase1" ? "selected" : ""}>Phase One (2008–2012)</option>
-                <option value="series" ${phase === "series" ? "selected" : ""}>Disney+ Web Series</option>
-                <option value="xmen" ${phase === "xmen" ? "selected" : ""}>Mutant Saga &amp; X-Men</option>
-              </select>
-            </label>
-            <label>Saga
-              <select name="saga">
-                <option value="Multiverse Saga" ${saga === "Multiverse Saga" ? "selected" : ""}>Multiverse Saga</option>
-                <option value="Infinity Saga" ${saga === "Infinity Saga" ? "selected" : ""}>Infinity Saga</option>
-                <option value="Marvel Television" ${saga === "Marvel Television" ? "selected" : ""}>Marvel Television</option>
-                <option value="Fox-Marvel Universe" ${saga === "Fox-Marvel Universe" ? "selected" : ""}>Fox-Marvel Universe</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="form-grid-2">
-            <label>Content Type
-              <select name="type">
-                <option value="movie" ${type === "movie" ? "selected" : ""}>Theatrical Film</option>
-                <option value="series" ${type === "series" ? "selected" : ""}>Disney+ Web Series</option>
-                <option value="xmen" ${type === "xmen" ? "selected" : ""}>X-Men / Mutant Film</option>
-              </select>
-            </label>
-            <label>Status
-              <select name="status">
-                <option value="upcoming" ${status === "upcoming" ? "selected" : ""}>Upcoming (In Theatres Soon)</option>
-                <option value="released" ${status === "released" ? "selected" : ""}>Released (Available)</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="form-grid-2">
-            <label>Roadmap Priority
-              <select name="priority">
-                <option value="must-watch" ${priority === "must-watch" ? "selected" : ""}>Must-Watch (Core Lore)</option>
-                <option value="recommended" ${priority === "recommended" ? "selected" : ""}>Recommended (Key Characters)</option>
-                <option value="optional" ${priority === "optional" ? "selected" : ""}>Optional (Side Story)</option>
-              </select>
-            </label>
-            <label>Runtime (minutes)
-              <input name="runtime_minutes" type="number" min="1" max="400" value="${runtime}">
-            </label>
-          </div>
-
-          <div class="form-grid-2">
-            <label>TMDB Query
-              <input name="tmdb_query" value="${esc(tmdbQuery)}" placeholder="e.g. Avengers Doomsday">
-            </label>
-            <label>Custom Poster URL (optional)
-              <input name="poster" value="${esc(poster)}" placeholder="https://...">
-            </label>
-          </div>
-
-          <label class="form-row-checkbox">
-            <input type="checkbox" name="is_spotlight" ${isSpotlight ? "checked" : ""}>
-            <span>Spotlight Feature (powers Home Doomsday Chronometer &amp; Hero Banner)</span>
-          </label>
-
-          <label>Synopsis
-            <textarea name="synopsis" rows="3" placeholder="Premise and story overview...">${esc(synopsis)}</textarea>
-          </label>
-
-          <div class="modal-btn-row">
-            <button type="submit" class="pill primary" id="save-movie-btn">Save to Database</button>
-            <button type="button" class="pill ghost" id="modal-cancel-btn">Cancel</button>
-            ${isEdit ? `<button type="button" class="btn-delete-project" id="delete-movie-btn">Delete Project</button>` : ""}
-          </div>
-        </form>
-      </div>
-    </div>`;
-
-  const close = () => { modalRoot.innerHTML = ""; };
-  document.getElementById("modal-close")?.addEventListener("click", close);
-  document.getElementById("modal-cancel-btn")?.addEventListener("click", close);
-  document.getElementById("modal-backdrop")?.addEventListener("click", (e) => {
-    if (e.target.id === "modal-backdrop") close();
-  });
-
-  if (isEdit) {
-    document.getElementById("delete-movie-btn")?.addEventListener("click", async () => {
-      if (!confirm(`Are you sure you want to remove "${movie.title}" from the roadmap?`)) return;
-      const delBtn = document.getElementById("delete-movie-btn");
-      delBtn.disabled = true;
-      delBtn.textContent = "Deleting…";
-      try {
-        await MI_DB.deleteMovie(movie.id);
-        showToast(`"${movie.title}" removed from roadmap.`);
-        close();
-        renderRoadmap();
-      } catch (err) {
-        showToast("Error deleting: " + err.message, true);
-        delBtn.disabled = false;
-        delBtn.textContent = "Delete Project";
-      }
-    });
-  }
-
-  const form = document.getElementById("roadmap-movie-form");
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    const saveBtn = document.getElementById("save-movie-btn");
-    saveBtn.disabled = true;
-    saveBtn.textContent = "Saving to Database…";
-
-    const fd = new FormData(form);
-    const titleVal = fd.get("title")?.toString().trim();
-    const relDateVal = fd.get("release_date")?.toString().trim() || null;
-    const yearVal = parseInt(fd.get("year")?.toString() || "", 10) || (relDateVal ? parseInt(relDateVal.slice(0, 4), 10) : 2026);
-    const phaseVal = fd.get("phase")?.toString() || "phase6";
-    const sagaVal = fd.get("saga")?.toString() || "Multiverse Saga";
-    const typeVal = fd.get("type")?.toString() || "movie";
-    const statusVal = fd.get("status")?.toString() || "upcoming";
-    const priorityVal = fd.get("priority")?.toString() || "must-watch";
-    const runtimeVal = parseInt(fd.get("runtime_minutes")?.toString() || "130", 10) || 130;
-    const tmdbVal = fd.get("tmdb_query")?.toString().trim() || titleVal;
-    const posterVal = fd.get("poster")?.toString().trim() || null;
-    const synopsisVal = fd.get("synopsis")?.toString().trim() || "";
-    const isSpotlightVal = fd.get("is_spotlight") === "on";
-
-    const idVal = movie ? movie.id : (titleVal.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `movie-${Date.now()}`);
-
-    const payload = {
-      id: idVal,
-      title: titleVal,
-      release_date: relDateVal,
-      year: yearVal,
-      phase: phaseVal,
-      saga: sagaVal,
-      type: typeVal,
-      status: statusVal,
-      priority: priorityVal,
-      runtime_minutes: runtimeVal,
-      tmdb_query: tmdbVal,
-      poster: posterVal,
-      synopsis: synopsisVal,
-      is_spotlight: isSpotlightVal
-    };
-
-    try {
-      await MI_DB.upsertMovie(payload);
-      showToast(`"${titleVal}" saved to database!`);
-      close();
-      renderRoadmap();
-    } catch (err) {
-      showToast("Failed to save: " + err.message, true);
-      saveBtn.disabled = false;
-      saveBtn.textContent = "Save to Database";
-    }
-  };
-}
-
+// ---------------------------------------------------------------- ROADMAP (+ Doomsday watch plan synced with DB)
 async function renderRoadmap() {
   app.innerHTML = `<div class="loading">Building your roadmap…</div>`;
   const userId = currentUserId();
@@ -1420,20 +1207,7 @@ async function renderRoadmap() {
     ${backButton("#/home", "Back to Home")}
     <section class="section">
       <h1>Marvel Roadmap &amp; Checklist</h1>
-      <p class="muted">Every MCU film, Disney+ web series, and X-Men project. Check off what you've watched — ${userId ? "saved to your account" : "log in to save your progress"}.</p>
-
-      <div class="roadmap-toolbar">
-        <div class="roadmap-toolbar-info">
-          <span>DATABASE-POWERED ROADMAP</span>
-          <span class="roadmap-db-indicator">● LIVE SYNC</span>
-        </div>
-        <div class="roadmap-toolbar-actions">
-          <button type="button" class="roadmap-edit-toggle ${roadmapEditingActive ? "active" : ""}" id="roadmap-edit-toggle">
-            ${roadmapEditingActive ? "✓ Done Editing" : "✎ Edit Projects"}
-          </button>
-          <button type="button" class="roadmap-add-btn" id="roadmap-add-btn">+ Add Project</button>
-        </div>
-      </div>
+      <p class="muted">Every MCU film, Disney+ web series, and X-Men project synced live from the database. Check off what you've watched — saved to your browser and account.</p>
 
       <div class="watch-plan comic-panel">
         <h2>Doomsday Watch Plan</h2>
@@ -1444,7 +1218,6 @@ async function renderRoadmap() {
           <div><strong>${fmtMinutes(remainingMinutesMustWatch)}</strong><span>must-watch remaining</span></div>
           <div><strong>~${fmtMinutes(minutesPerDayMust)}</strong><span>per day to finish must-watch in time</span></div>
         </div>
-        ${!userId ? `<p class="notice">Log in so your watched list (and this plan) is personal to you.</p>` : ""}
       </div>
 
       <div class="filter-bar" id="roadmap-filter-bar">
@@ -1455,7 +1228,7 @@ async function renderRoadmap() {
         <button type="button" class="filter-btn" data-roadmap-filter="xmen">X-Men Universe</button>
       </div>
 
-      <div id="roadmap-phases-container" class="${roadmapEditingActive ? "roadmap-editing-active" : ""}">
+      <div id="roadmap-phases-container">
       ${Object.keys(phaseMeta).map(phaseId => {
         const movies = byPhase[phaseId] || [];
         if (!movies.length) return "";
@@ -1477,7 +1250,6 @@ async function renderRoadmap() {
                   <span class="tag priority-${m.priority}">${m.priority.replace("-", " ")}</span>
                   <span class="muted">${fmtMinutes(m.runtime_minutes)}</span>
                   ${m.status === "upcoming" ? `<span class="tag upcoming-tag">${m.release_date ? fmtDate(m.release_date) : "Upcoming"}</span>` : ""}
-                  <button type="button" class="roadmap-item-edit-btn" data-edit-movie="${esc(m.id)}" title="Edit in Database">Edit ✎</button>
                 </span>
               </li>`;
             }).join("")}
@@ -1502,39 +1274,8 @@ async function renderRoadmap() {
     };
   });
 
-  // Edit projects toggle button
-  document.getElementById("roadmap-edit-toggle")?.addEventListener("click", () => {
-    roadmapEditingActive = !roadmapEditingActive;
-    const container = document.getElementById("roadmap-phases-container");
-    const toggleBtn = document.getElementById("roadmap-edit-toggle");
-    if (roadmapEditingActive) {
-      container?.classList.add("roadmap-editing-active");
-      toggleBtn?.classList.add("active");
-      if (toggleBtn) toggleBtn.textContent = "✓ Done Editing";
-    } else {
-      container?.classList.remove("roadmap-editing-active");
-      toggleBtn?.classList.remove("active");
-      if (toggleBtn) toggleBtn.textContent = "✎ Edit Projects";
-    }
-  });
-
-  // Add project button
-  document.getElementById("roadmap-add-btn")?.addEventListener("click", () => {
-    openRoadmapMovieEditorModal(null, roadmap);
-  });
-
-  // Item edit buttons
-  app.querySelectorAll(".roadmap-item-edit-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const movieId = btn.dataset.editMovie;
-      openRoadmapMovieEditorModal(movieId, roadmap);
-    });
-  });
-
   app.querySelectorAll('input[type=checkbox][data-id]').forEach(cb => {
     cb.onchange = async () => {
-      if (!userId) { cb.checked = !cb.checked; openAuthModal(); return; }
       await MI_DB.toggleWatched(userId, cb.dataset.id, cb.checked);
       renderRoadmap();
     };
@@ -1676,6 +1417,352 @@ async function renderShop() {
     </section>`;
 }
 
+// ---------------------------------------------------------------- OTP VERIFICATION PAGE
+function renderOtpVerification(paramEmail, paramType) {
+  let targetEmail = (paramEmail || "").trim() || sessionStorage.getItem("mi_pending_otp_email") || "";
+  let targetType = (paramType || "").trim() || "signup";
+  const userId = currentUserId();
+
+  if (userId) {
+    app.innerHTML = `
+      ${backButton("#/home", "Back to Home")}
+      <section class="section otp-page-section">
+        <div class="otp-verify-card comic-panel">
+          <div class="otp-crest-wrap"><div class="otp-crest">✓</div></div>
+          <h1>Account Verified</h1>
+          <p class="otp-intro">You are currently signed in as <strong>${esc(currentUsername())}</strong>.</p>
+          <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:20px;">
+            <a href="#/home" class="pill primary">Go to Home</a>
+            <a href="#/roadmap" class="pill ghost">View Watch Plan</a>
+          </div>
+        </div>
+      </section>`;
+    return;
+  }
+
+  let isEditingEmail = !targetEmail;
+  let resendCooldown = 0;
+  let resendInterval = null;
+
+  app.innerHTML = `
+    ${backButton("#/home", "Back to Home")}
+    <section class="section otp-page-section">
+      <div class="otp-verify-card comic-panel">
+        <div class="otp-crest-wrap">
+          <div class="otp-crest">⚡</div>
+        </div>
+        <h1>Verify Your Account</h1>
+        <p class="otp-intro">Enter the 6-digit confirmation code sent to your email to verify and activate your Marvel India account.</p>
+
+        <div class="otp-email-box" id="otp-email-display-wrap" style="${isEditingEmail ? "display:none;" : ""}">
+          <div class="otp-email-content">
+            <span class="otp-email-label">Verification code sent to</span>
+            <span class="otp-email-address" id="otp-display-email-text">${esc(targetEmail)}</span>
+          </div>
+          <button type="button" class="otp-change-email-btn" id="btn-toggle-change-email">Change</button>
+        </div>
+
+        <div class="otp-email-input-wrap" id="otp-email-edit-wrap" style="${isEditingEmail ? "" : "display:none;"}">
+          <label>Your Email Address
+            <input type="email" id="otp-target-email-input" placeholder="you@marvelindia.com" value="${esc(targetEmail)}" autocomplete="email">
+          </label>
+          ${targetEmail ? `<div style="text-align:right;margin-top:4px;"><button type="button" class="link-btn" id="btn-cancel-email-edit" style="font-size:0.85rem;">Cancel</button></div>` : ""}
+        </div>
+
+        <label class="otp-digits-label">Enter 6-Digit Code</label>
+        <div class="otp-digit-group" id="otp-digit-group">
+          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="0" autocomplete="off" autofocus>
+          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="1" autocomplete="off">
+          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="2" autocomplete="off">
+          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="3" autocomplete="off">
+          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="4" autocomplete="off">
+          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" data-idx="5" autocomplete="off">
+        </div>
+        <div class="otp-paste-hint">Tip: You can paste your 6-digit code directly into the boxes.</div>
+
+        <div id="otp-status-msg" class="otp-status" style="display:none;"></div>
+
+        <button type="button" id="btn-verify-submit" class="pill primary full" style="font-size:1.15rem;padding:12px;">Verify Code &amp; Continue &rarr;</button>
+
+        <div class="otp-resend-row">
+          <span>Didn't receive the code?</span>
+          <button type="button" id="btn-resend-trigger" class="otp-btn-link">Resend Code</button>
+          <span id="otp-timer-display" class="otp-timer" style="display:none;"></span>
+        </div>
+
+        <div class="otp-help-box">
+          <h4>Verification Tips</h4>
+          <ul>
+            <li>Check your Spam, Junk, or Promotions folder if the code doesn't arrive in 1-2 minutes.</li>
+            <li>Verification codes expire after 15 minutes.</li>
+            <li>Already verified? <a href="#/home" class="link">Return to Home</a> or <button type="button" class="link-btn" id="btn-open-password-login">Log in with password</button></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  `;
+
+  const digitBoxes = Array.from(app.querySelectorAll(".otp-digit-box"));
+  const statusMsg = document.getElementById("otp-status-msg");
+  const submitBtn = document.getElementById("btn-verify-submit");
+  const resendBtn = document.getElementById("btn-resend-trigger");
+  const timerDisplay = document.getElementById("otp-timer-display");
+  const emailInput = document.getElementById("otp-target-email-input");
+  const emailDisplayWrap = document.getElementById("otp-email-display-wrap");
+  const emailEditWrap = document.getElementById("otp-email-edit-wrap");
+  const emailDisplayText = document.getElementById("otp-display-email-text");
+  const changeEmailBtn = document.getElementById("btn-toggle-change-email");
+  const cancelEmailBtn = document.getElementById("btn-cancel-email-edit");
+  const loginWithPassBtn = document.getElementById("btn-open-password-login");
+
+  function setStatus(msg, type = "error") {
+    if (!statusMsg) return;
+    if (!msg) {
+      statusMsg.style.display = "none";
+      statusMsg.textContent = "";
+      return;
+    }
+    statusMsg.className = `otp-status ${type}`;
+    statusMsg.textContent = msg;
+    statusMsg.style.display = "block";
+  }
+
+  function getActiveEmail() {
+    if (emailInput && emailEditWrap && emailEditWrap.style.display !== "none") {
+      return (emailInput.value || "").trim().toLowerCase();
+    }
+    return (targetEmail || (emailInput ? emailInput.value : "")).trim().toLowerCase();
+  }
+
+  function getFullToken() {
+    return digitBoxes.map(b => b.value.trim()).join("");
+  }
+
+  // Box navigation & inputs
+  digitBoxes.forEach((box, idx) => {
+    box.addEventListener("input", () => {
+      const val = box.value.replace(/\D/g, "");
+      box.value = val ? val[0] : "";
+      setStatus("");
+      if (val && idx < 5) {
+        digitBoxes[idx + 1].focus();
+        digitBoxes[idx + 1].select();
+      }
+      if (getFullToken().length === 6) {
+        executeVerify();
+      }
+    });
+
+    box.addEventListener("keydown", (e) => {
+      if (e.key === "Backspace") {
+        if (!box.value && idx > 0) {
+          digitBoxes[idx - 1].value = "";
+          digitBoxes[idx - 1].focus();
+        }
+      } else if (e.key === "ArrowLeft" && idx > 0) {
+        digitBoxes[idx - 1].focus();
+        digitBoxes[idx - 1].select();
+      } else if (e.key === "ArrowRight" && idx < 5) {
+        digitBoxes[idx + 1].focus();
+        digitBoxes[idx + 1].select();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        executeVerify();
+      }
+    });
+
+    box.addEventListener("paste", (e) => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData("text") || "";
+      const digits = text.replace(/\D/g, "").slice(0, 6);
+      if (!digits) return;
+      for (let i = 0; i < 6; i++) {
+        if (i < digits.length) {
+          digitBoxes[i].value = digits[i];
+        }
+      }
+      if (digits.length >= 6) {
+        digitBoxes[5].focus();
+        executeVerify();
+      } else {
+        digitBoxes[digits.length].focus();
+      }
+    });
+
+    box.addEventListener("focus", () => {
+      box.select();
+    });
+  });
+
+  // Focus first box on load
+  setTimeout(() => {
+    if (digitBoxes[0] && !isEditingEmail) {
+      digitBoxes[0].focus();
+    } else if (emailInput && isEditingEmail) {
+      emailInput.focus();
+    }
+  }, 100);
+
+  // Email toggles
+  if (changeEmailBtn) {
+    changeEmailBtn.addEventListener("click", () => {
+      isEditingEmail = true;
+      if (emailDisplayWrap) emailDisplayWrap.style.display = "none";
+      if (emailEditWrap) emailEditWrap.style.display = "block";
+      if (emailInput) {
+        emailInput.focus();
+        emailInput.select();
+      }
+    });
+  }
+
+  if (cancelEmailBtn) {
+    cancelEmailBtn.addEventListener("click", () => {
+      isEditingEmail = false;
+      if (emailEditWrap) emailEditWrap.style.display = "none";
+      if (emailDisplayWrap) emailDisplayWrap.style.display = "flex";
+      if (digitBoxes[0]) digitBoxes[0].focus();
+    });
+  }
+
+  if (loginWithPassBtn) {
+    loginWithPassBtn.addEventListener("click", () => {
+      openAuthModal("login");
+    });
+  }
+
+  // Execution verification
+  async function executeVerify() {
+    const email = getActiveEmail();
+    const token = getFullToken();
+
+    if (!email || !email.includes("@")) {
+      setStatus("Please enter a valid email address.", "error");
+      if (emailEditWrap && emailEditWrap.style.display === "none") {
+        changeEmailBtn?.click();
+      }
+      emailInput?.focus();
+      return;
+    }
+
+    if (token.length !== 6 || !/^\d{6}$/.test(token)) {
+      setStatus("Please enter all 6 digits of your verification code.", "error");
+      const emptyIdx = digitBoxes.findIndex(b => !b.value.trim());
+      if (emptyIdx !== -1) {
+        digitBoxes[emptyIdx].focus();
+      } else {
+        digitBoxes[0].focus();
+      }
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Verifying Code…";
+    setStatus("");
+
+    try {
+      const result = await MI_AUTH.verifyOtp(email, token, targetType);
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Verify Code & Continue →";
+
+      if (!result.ok) {
+        setStatus(result.error || "Verification failed. The code may be incorrect or expired.", "error");
+        digitBoxes.forEach(b => b.classList.add("shake"));
+        setTimeout(() => digitBoxes.forEach(b => b.classList.remove("shake")), 400);
+        return;
+      }
+
+      sessionStorage.removeItem("mi_pending_otp_email");
+      const card = app.querySelector(".otp-verify-card");
+      if (card) {
+        card.innerHTML = `
+          <div class="otp-success-state">
+            <div class="otp-success-icon">✓</div>
+            <h2>Verification Successful!</h2>
+            <p>Your Marvel India account is now active and verified. Welcome to the multiverse, <strong>${esc(result.user?.email || email)}</strong>!</p>
+            <div style="display:flex;gap:12px;justify-content:center;margin-top:24px;flex-wrap:wrap;">
+              <a href="#/home" class="pill primary">Explore Marvel India</a>
+              <a href="#/roadmap" class="pill ghost">Build Watch Plan</a>
+            </div>
+          </div>
+        `;
+      }
+      updateAuthHeader();
+      setTimeout(() => {
+        if (location.hash.startsWith("#/verify")) {
+          location.hash = "#/home";
+        }
+      }, 2500);
+    } catch (err) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Verify Code & Continue →";
+      setStatus("An unexpected error occurred: " + err.message, "error");
+    }
+  }
+
+  submitBtn?.addEventListener("click", executeVerify);
+
+  // Resend code
+  resendBtn?.addEventListener("click", async () => {
+    if (resendCooldown > 0) return;
+    const email = getActiveEmail();
+    if (!email || !email.includes("@")) {
+      setStatus("Please enter a valid email address to resend code.", "error");
+      if (emailEditWrap && emailEditWrap.style.display === "none") {
+        changeEmailBtn?.click();
+      }
+      emailInput?.focus();
+      return;
+    }
+
+    resendBtn.disabled = true;
+    resendBtn.textContent = "Sending…";
+    setStatus("");
+
+    try {
+      const result = await MI_AUTH.resendVerificationOtp(email, targetType);
+      if (!result.ok) {
+        resendBtn.disabled = false;
+        resendBtn.textContent = "Resend Code";
+        setStatus(result.error || "Failed to resend verification code.", "error");
+        return;
+      }
+
+      setStatus(`A fresh 6-digit verification code has been sent to ${email}.`, "success");
+      targetEmail = email;
+      sessionStorage.setItem("mi_pending_otp_email", email);
+      if (emailDisplayText) emailDisplayText.textContent = email;
+      if (emailEditWrap) emailEditWrap.style.display = "none";
+      if (emailDisplayWrap) emailDisplayWrap.style.display = "flex";
+
+      resendCooldown = 30;
+      resendBtn.style.display = "none";
+      if (timerDisplay) {
+        timerDisplay.style.display = "inline";
+        timerDisplay.textContent = `(Resend in ${resendCooldown}s)`;
+      }
+
+      if (resendInterval) clearInterval(resendInterval);
+      resendInterval = setInterval(() => {
+        resendCooldown--;
+        if (resendCooldown <= 0) {
+          clearInterval(resendInterval);
+          resendBtn.style.display = "inline";
+          resendBtn.disabled = false;
+          resendBtn.textContent = "Resend Code";
+          if (timerDisplay) timerDisplay.style.display = "none";
+        } else {
+          if (timerDisplay) timerDisplay.textContent = `(Resend in ${resendCooldown}s)`;
+        }
+      }, 1000);
+    } catch (err) {
+      resendBtn.disabled = false;
+      resendBtn.textContent = "Resend Code";
+      setStatus("Error resending code: " + err.message, "error");
+    }
+  });
+}
+
 // ---------------------------------------------------------------- ROUTER
 function parseHash() {
   const raw = location.hash.slice(1) || "/home";
@@ -1709,6 +1796,7 @@ function route() {
   if (path === "/blog/new") return renderNewBlogForm();
   if (path.startsWith("/blog/")) return renderBlogPost(path.split("/")[2]);
   if (path === "/shop") return renderShop();
+  if (path === "/verify" || path === "/verify-otp" || path === "/auth/verify") return renderOtpVerification(params.get("email"), params.get("type"));
   if (path === "/privacy") return renderPrivacyPolicy();
   if (path === "/terms") return renderTerms();
   app.innerHTML = `<section class="section"><h1>Page not found</h1><a href="#/home" class="link">← Home</a></section>`;

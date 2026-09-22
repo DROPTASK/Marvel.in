@@ -30,7 +30,7 @@ const MI_AUTH = (() => {
   }
 
   async function signup(username, email, password) {
-    if (!MI_SUPABASE.ready) return { ok: false, error: "Database service is initializing. Please try again in a moment." };
+    if (!MI_SUPABASE.ready) return { ok: false, error: "Supabase connection not configured in js/config.js. You can still explore the app in Guest Mode!" };
     if (!username || !email || !password) return { ok: false, error: "Username, email and password are all required." };
     const { data, error } = await sb().auth.signUp({
       email, password,
@@ -42,7 +42,7 @@ const MI_AUTH = (() => {
   }
 
   async function login(email, password) {
-    if (!MI_SUPABASE.ready) return { ok: false, error: "Database service is initializing. Please try again in a moment." };
+    if (!MI_SUPABASE.ready) return { ok: false, error: "Supabase connection not configured in js/config.js. You can still explore the app in Guest Mode!" };
     const { data, error } = await sb().auth.signInWithPassword({ email, password });
     if (error) return { ok: false, error: error.message };
     cachedUser = data.user;
@@ -56,7 +56,7 @@ const MI_AUTH = (() => {
   }
 
   async function sendOtp(email, username) {
-    if (!MI_SUPABASE.ready) return { ok: false, error: "Database service not configured." };
+    if (!MI_SUPABASE.ready) return { ok: false, error: "Supabase connection not configured in js/config.js." };
     if (!email || !email.includes("@")) return { ok: false, error: "Please enter a valid email address." };
     const options = { shouldCreateUser: true };
     if (username && username.trim()) {
@@ -71,46 +71,63 @@ const MI_AUTH = (() => {
   }
 
   async function verifyOtp(email, token, type = "signup") {
-    if (!MI_SUPABASE.ready) return { ok: false, error: "Database service not configured." };
+    if (!MI_SUPABASE.ready) {
+      return { ok: false, error: "Supabase connection is not configured in js/config.js. Add your Supabase project credentials to send and verify real OTP codes." };
+    }
     const cleanToken = (token || "").replace(/\s+/g, "").trim();
-    if (!cleanToken || cleanToken.length !== 6) {
-      return { ok: false, error: "Please enter a valid 6-digit verification code." };
+    if (!cleanToken || cleanToken.length !== 6 || !/^\d{6}$/.test(cleanToken)) {
+      return { ok: false, error: "Please enter a valid 6-digit numeric verification code." };
     }
     const cleanEmail = (email || "").trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      return { ok: false, error: "Please provide a valid email address." };
+    }
     
-    let res = await sb().auth.verifyOtp({
-      email: cleanEmail,
-      token: cleanToken,
-      type: type
-    });
-    
-    if (res.error) {
-      const altType = type === "signup" ? "email" : "signup";
-      const retryRes = await sb().auth.verifyOtp({
-        email: cleanEmail,
-        token: cleanToken,
-        type: altType
-      });
-      if (!retryRes.error) res = retryRes;
+    const typesToTry = [type || "signup", type === "signup" ? "email" : "signup", "magiclink"];
+    let lastError = null;
+
+    for (const t of typesToTry) {
+      if (!t) continue;
+      try {
+        const res = await sb().auth.verifyOtp({
+          email: cleanEmail,
+          token: cleanToken,
+          type: t
+        });
+        if (!res.error && (res.data.session || res.data.user)) {
+          cachedUser = res.data.user || (res.data.session ? res.data.session.user : null);
+          window.dispatchEvent(new CustomEvent("mi-auth-changed"));
+          return { ok: true, user: cachedUser };
+        }
+        if (res.error) lastError = res.error;
+      } catch (err) {
+        lastError = err;
+      }
     }
 
-    if (res.error) return { ok: false, error: res.error.message };
-    cachedUser = res.data.user || (res.data.session ? res.data.session.user : null);
-    window.dispatchEvent(new CustomEvent("mi-auth-changed"));
-    return { ok: true, user: cachedUser };
+    return { ok: false, error: (lastError && lastError.message) || "Invalid or expired verification code. Please check and try again." };
   }
 
   async function resendVerificationOtp(email, type = "signup") {
-    if (!MI_SUPABASE.ready) return { ok: false, error: "Database service not configured." };
+    if (!MI_SUPABASE.ready) {
+      return { ok: false, error: "Supabase connection is not configured in js/config.js." };
+    }
     const cleanEmail = (email || "").trim().toLowerCase();
-    const { error } = await sb().auth.resend({
-      type: type,
-      email: cleanEmail
-    });
-    if (error) {
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      return { ok: false, error: "Please provide a valid email address." };
+    }
+    try {
+      const { error } = await sb().auth.resend({
+        type: type || "signup",
+        email: cleanEmail
+      });
+      if (error) {
+        return sendOtp(cleanEmail);
+      }
+      return { ok: true };
+    } catch {
       return sendOtp(cleanEmail);
     }
-    return { ok: true };
   }
 
   return { init, currentUser, currentUserId, currentUsername, signup, login, logout, sendOtp, verifyOtp, resendVerificationOtp };
