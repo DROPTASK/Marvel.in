@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import omdbHandler from "./api/omdb.js";
 import tmdbHandler from "./api/tmdb.js";
 import configHandler from "./api/config.js";
+import sendEmailHandler from "./api/send-email.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,6 +20,7 @@ app.all("/api/omdb", (req, res) => omdbHandler(req, res));
 app.all("/api/tmdb", (req, res) => tmdbHandler(req, res));
 app.all("/api/config", (req, res) => configHandler(req, res));
 app.all("/api/config.js", (req, res) => configHandler(req, res));
+app.all("/api/send-email", (req, res) => sendEmailHandler(req, res));
 app.get("/js/config.js", (req, res) => configHandler(req, res));
 
 // Serve static assets

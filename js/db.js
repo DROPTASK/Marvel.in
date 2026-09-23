@@ -546,39 +546,88 @@ const MI_DB = (() => {
   function slugify(title) {
     return title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + Date.now().toString(36);
   }
+
+  function safeSaveLocalBlogPosts(posts) {
+    try {
+      localStorage.setItem("mi_user_blog_posts", JSON.stringify(posts.slice(0, 30)));
+    } catch (e) {
+      console.warn("[MarvelIndia] LocalStorage full, trimming bulky images:", e);
+      try {
+        // If quota exceeded, sanitize posts by stripping large inline base64 data URLs
+        const sanitized = posts.slice(0, 15).map(p => {
+          let cleanBody = p.body;
+          if (typeof cleanBody === "string" && cleanBody.length > 50000) {
+            try {
+              const parsed = JSON.parse(cleanBody);
+              if (parsed.blocks) {
+                parsed.blocks = parsed.blocks.map(b => {
+                  if (b.type === "image" && b.url && b.url.startsWith("data:")) {
+                    return { ...b, url: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=800&auto=format&fit=crop&q=80" };
+                  }
+                  return b;
+                });
+                cleanBody = JSON.stringify(parsed);
+              }
+            } catch (_) {
+              cleanBody = cleanBody.slice(0, 5000) + "...";
+            }
+          }
+          let cleanCover = p.cover_image_url;
+          if (cleanCover && cleanCover.startsWith("data:") && cleanCover.length > 5000) {
+            cleanCover = "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=800&auto=format&fit=crop&q=80";
+          }
+          return { ...p, body: cleanBody, cover_image_url: cleanCover };
+        });
+        localStorage.setItem("mi_user_blog_posts", JSON.stringify(sanitized));
+      } catch (err2) {
+        console.warn("[MarvelIndia] Could not save to localStorage after sanitizing:", err2);
+      }
+    }
+  }
+
   async function createBlogPost(userId, { title, body, tags, coverFile, coverUrl }) {
     if (!userId) {
-      // Fallback author for offline guest mode
       userId = "local-guest";
     }
     if (!title || !title.trim() || !body || !body.trim()) return { ok: false, error: "Title and content are required." };
+    
     let finalCoverUrl = coverUrl || null;
     if (coverFile instanceof File) {
-      const upload = await uploadBlogCover(userId, coverFile);
-      if (upload.ok) {
-        finalCoverUrl = upload.url;
+      try {
+        const upload = await uploadBlogCover(userId, coverFile);
+        if (upload && upload.ok && upload.url) {
+          finalCoverUrl = upload.url;
+        }
+      } catch (err) {
+        console.warn("[MarvelIndia] Cover upload fallback:", err);
       }
     } else if (typeof coverFile === "string" && coverFile.trim()) {
       finalCoverUrl = coverFile.trim();
     }
+    if (!finalCoverUrl) {
+      finalCoverUrl = "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=800&auto=format&fit=crop&q=80";
+    }
+
     const slug = slugify(title);
     const tagArray = (tags || "").split(",").map(t => t.trim()).filter(Boolean);
 
-    // Save to local storage cache so it's instantly available everywhere
+    const newPost = {
+      id: "local-" + Date.now(),
+      title: title.trim(),
+      slug,
+      body: body.trim(),
+      tags: tagArray,
+      cover_image_url: finalCoverUrl,
+      created_at: new Date().toISOString(),
+      author_id: userId,
+      profiles: { username: "Marvelite Writer", avatar_url: null }
+    };
+
+    // Save to local storage cache immediately
     try {
       const custom = JSON.parse(localStorage.getItem("mi_user_blog_posts") || "[]");
-      custom.unshift({
-        id: "local-" + Date.now(),
-        title: title.trim(),
-        slug,
-        body: body.trim(),
-        tags: tagArray,
-        cover_image_url: finalCoverUrl || "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=800&auto=format&fit=crop&q=80",
-        created_at: new Date().toISOString(),
-        author_id: userId,
-        profiles: { username: "Marvelite Writer", avatar_url: null }
-      });
-      localStorage.setItem("mi_user_blog_posts", JSON.stringify(custom.slice(0, 30)));
+      custom.unshift(newPost);
+      safeSaveLocalBlogPosts(custom);
     } catch (_) {}
 
     if (!isReady()) {
@@ -586,11 +635,17 @@ const MI_DB = (() => {
     }
 
     try {
-      const { error } = await sb().from("blog_posts").insert({
-        author_id: userId, title: title.trim(), slug, body: body.trim(),
-        tags: tagArray,
-        cover_image_url: finalCoverUrl
-      });
+      const { error } = await withTimeout(
+        sb().from("blog_posts").insert({
+          author_id: userId,
+          title: title.trim(),
+          slug,
+          body: body.trim(),
+          tags: tagArray,
+          cover_image_url: finalCoverUrl
+        }),
+        3500
+      );
       if (error) {
         console.warn("[MarvelIndia] Remote blog save skipped, local draft saved:", error.message);
       }
@@ -838,19 +893,35 @@ const MI_DB = (() => {
 
   // ------------------------------------------------------------- storage uploads
   async function uploadAvatar(userId, file) {
-    const path = `${userId}/avatar.${file.name.split(".").pop()}`;
-    const { error } = await sb().storage.from("avatars").upload(path, file, { upsert: true });
-    if (error) return { ok: false, error: error.message };
-    const { data } = sb().storage.from("avatars").getPublicUrl(path);
-    await sb().from("profiles").update({ avatar_url: data.publicUrl }).eq("id", userId);
-    return { ok: true, url: data.publicUrl };
+    if (!isReady()) return { ok: false, error: "Offline mode" };
+    try {
+      const path = `${userId}/avatar.${file.name.split(".").pop()}`;
+      const { error } = await withTimeout(
+        sb().storage.from("avatars").upload(path, file, { upsert: true }),
+        4000
+      );
+      if (error) return { ok: false, error: error.message };
+      const { data } = sb().storage.from("avatars").getPublicUrl(path);
+      await withTimeout(sb().from("profiles").update({ avatar_url: data.publicUrl }).eq("id", userId), 3000);
+      return { ok: true, url: data.publicUrl };
+    } catch (err) {
+      return { ok: false, error: err.message || "Avatar upload timed out" };
+    }
   }
   async function uploadBlogCover(userId, file) {
-    const path = `${userId}/${Date.now()}-${file.name}`;
-    const { error } = await sb().storage.from("blog-covers").upload(path, file);
-    if (error) return { ok: false, error: error.message };
-    const { data } = sb().storage.from("blog-covers").getPublicUrl(path);
-    return { ok: true, url: data.publicUrl };
+    if (!isReady()) return { ok: false, error: "Offline mode" };
+    try {
+      const path = `${userId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+      const { error } = await withTimeout(
+        sb().storage.from("blog-covers").upload(path, file),
+        4000
+      );
+      if (error) return { ok: false, error: error.message };
+      const { data } = sb().storage.from("blog-covers").getPublicUrl(path);
+      return { ok: true, url: data.publicUrl };
+    } catch (err) {
+      return { ok: false, error: err.message || "Cover upload timed out" };
+    }
   }
 
   // ------------------------------------------------------------- profile
